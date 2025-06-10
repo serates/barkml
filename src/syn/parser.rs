@@ -35,15 +35,35 @@ impl<'source> Parser<'source> {
             comment: None,
             label: None,
         };
-        if let Some(Token::LineComment((_, comment)) | Token::MultiLineComment((_, comment))) =
-            self.tokens.peek()?
-        {
-            self.tokens.discard();
-            meta.comment = Some(comment.clone());
+
+        // Process comments
+        while let Some(token) = self.tokens.peek()? {
+            match token {
+                Token::LineComment((_, comment)) | Token::MultiLineComment((_, comment)) => {
+                    self.tokens.discard();
+                    // If we already have a comment, append this one with a newline
+                    if let Some(existing) = meta.comment.as_mut() {
+                        existing.push('\n');
+                        existing.push_str(&comment);
+                    } else {
+                        meta.comment = Some(comment.clone());
+                    }
+                }
+                Token::LabelIdentifier((_, label)) => {
+                    self.tokens.discard();
+                    meta.label = Some(label.clone());
+                    break;
+                }
+                _ => break,
+            }
         }
-        if let Some(Token::LabelIdentifier((_, label))) = self.tokens.peek()? {
-            self.tokens.discard();
-            meta.label = Some(label.clone())
+
+        // If we didn't find a label in the comment processing loop, check again
+        if meta.label.is_none() {
+            if let Some(Token::LabelIdentifier((_, label))) = self.tokens.peek()? {
+                self.tokens.discard();
+                meta.label = Some(label.clone());
+            }
         }
 
         Ok(meta)
@@ -135,7 +155,9 @@ impl<'source> Parser<'source> {
                                 location: self.tokens.location(),
                             })?;
                             let id = match id {
-                                Token::Identifier(id) | Token::String(id) => Ok(id.1.clone()),
+                                Token::Identifier((_, id)) | Token::String((_, id)) => {
+                                    Ok(id.clone())
+                                }
                                 got => error::ExpectedSnafu {
                                     location: got.location(Some(self.tokens.module_name.clone())),
                                     expected: "identifier or string value",
@@ -164,25 +186,9 @@ impl<'source> Parser<'source> {
             _ => error::ExpectedSnafu {
                 location: self.tokens.location(),
                 expected: vec![
-                    "string".to_string(),
-                    "int".to_string(),
-                    "i8".to_string(),
-                    "i16".to_string(),
-                    "i32".to_string(),
-                    "i64".to_string(),
-                    "u8".to_string(),
-                    "u16".to_string(),
-                    "u32".to_string(),
-                    "u64".to_string(),
-                    "float".to_string(),
-                    "f64".to_string(),
-                    "f32".to_string(),
-                    "bool".to_string(),
-                    "bytes".to_string(),
-                    "version".to_string(),
-                    "require".to_string(),
-                    "array".to_string(),
-                    "table".to_string(),
+                    "string", "int", "i8", "i16", "i32", "i64", "i128", "uint", "u8", "u16", "u32",
+                    "u64", "u128", "float", "f32", "f64", "bool", "bytes", "version", "require",
+                    "label", "symbol", "null", "array", "table",
                 ]
                 .join(", "),
                 got: token.clone(),
@@ -197,10 +203,14 @@ impl<'source> Parser<'source> {
         let token = self.tokens.next()?.context(error::EofSnafu {
             location: self.tokens.location(),
         })?;
+
         match token {
+            // Simple value types
             Token::KeyNull(_) => Ok((Value::new_null(meta), ValueType::Null)),
             Token::False(_) => Ok((Value::new_bool(false, meta), ValueType::Bool)),
             Token::True(_) => Ok((Value::new_bool(true, meta), ValueType::Bool)),
+
+            // Integer types with various precisions
             Token::Int((_, Integer::Signed(value))) => {
                 Ok((Value::new_int(value, meta), ValueType::Signed))
             }
@@ -233,6 +243,8 @@ impl<'source> Parser<'source> {
                 Ok((Value::new_u16(value, meta), ValueType::U16))
             }
             Token::Int((_, Integer::U8(value))) => Ok((Value::new_u8(value, meta), ValueType::U8)),
+
+            // Float types
             Token::Float((_, HashableFloat::Generic(value))) => {
                 Ok((Value::new_float(value, meta), ValueType::Float))
             }
@@ -242,6 +254,8 @@ impl<'source> Parser<'source> {
             Token::Float((_, HashableFloat::Float64(value))) => {
                 Ok((Value::new_f64(value, meta), ValueType::F64))
             }
+
+            // String and identifier types
             Token::String((_, value)) => {
                 Ok((Value::new_string(value.clone(), meta), ValueType::String))
             }
@@ -257,15 +271,19 @@ impl<'source> Parser<'source> {
             Token::ByteString((_, value)) => {
                 Ok((Value::new_bytes(value.clone(), meta), ValueType::Bytes))
             }
+
+            // Version types
             Token::Version((_, value)) => {
                 Ok((Value::new_version(value.clone(), meta), ValueType::Version))
             }
             Token::Require((_, value)) => {
                 Ok((Value::new_require(value.clone(), meta), ValueType::Require))
             }
+            // Array parsing
             Token::LBracket(_) => {
-                let mut children = Vec::new();
-                let mut child_types = Vec::new();
+                let mut children = Vec::with_capacity(8);
+                let mut child_types = Vec::with_capacity(8);
+
                 while let Some(token) = self.tokens.peek()? {
                     match token {
                         Token::Comma(_) => {
@@ -283,6 +301,7 @@ impl<'source> Parser<'source> {
                         }
                     };
                 }
+
                 Ok((
                     Value::new_array(children, meta),
                     ValueType::Array(child_types),
@@ -301,21 +320,32 @@ impl<'source> Parser<'source> {
                             self.tokens.discard();
                             break;
                         }
-                        Token::Identifier((location, id)) | Token::String((location, id)) => {
-                            let id = id.clone();
-                            let mut location = location.clone();
-                            location.set_module(self.tokens.module_name.as_str());
+                        Token::Identifier(_) | Token::String(_) => {
                             let next_token = self.tokens.next()?.context(error::EofSnafu {
-                                location: location.clone(),
+                                location: self.tokens.location(),
                             })?;
-                            let vtype = if matches!(next_token, Token::Comma(_)) {
+
+                            let id = match next_token {
+                                Token::Identifier((location, id))
+                                | Token::String((location, id)) => {
+                                    let mut loc = location.clone();
+                                    loc.set_module(self.tokens.module_name.as_str());
+                                    (loc, id.clone())
+                                }
+                                _ => unreachable!(), // We already matched this in the peek
+                            };
+
+                            let vtype = if let Some(Token::Colon(_)) = self.tokens.peek()? {
+                                self.tokens.discard();
                                 Some(self.value_type()?)
                             } else {
                                 None
                             };
+
                             let eq_tok = self.tokens.next()?.context(error::EofSnafu {
-                                location: location.clone(),
+                                location: id.0.clone(),
                             })?;
+
                             ensure!(
                                 matches!(eq_tok, Token::Assign(_)),
                                 error::ExpectedSnafu {
@@ -325,20 +355,15 @@ impl<'source> Parser<'source> {
                                     got: eq_tok.clone()
                                 }
                             );
+
                             let (child, child_type) = self.value()?;
-                            children.insert(id.clone(), child);
-                            child_types.insert(id.clone(), vtype.unwrap_or(child_type.clone()));
+                            children.insert(id.1.clone(), child);
+                            child_types.insert(id.1, vtype.unwrap_or(child_type));
                         }
                         _ => {
                             return error::ExpectedSnafu {
                                 location,
-                                expected: [
-                                    ",".to_string(),
-                                    "}".to_string(),
-                                    "identifier".to_string(),
-                                    "string".to_string(),
-                                ]
-                                .join(" "),
+                                expected: ", } identifier string",
                                 got: token.clone(),
                             }
                             .fail()
@@ -350,9 +375,10 @@ impl<'source> Parser<'source> {
                     ValueType::Table(child_types),
                 ))
             }
+            // Error for unexpected tokens
             _ => error::ExpectedSnafu {
                 location: token.location(Some(self.tokens.module_name.clone())),
-                expected: "value",
+                expected: "value (null, bool, number, string, array, table, etc.)",
                 got: token,
             }
             .fail(),
@@ -365,22 +391,26 @@ impl<'source> Parser<'source> {
         let token = self.tokens.next()?.context(error::EofSnafu {
             location: self.tokens.location(),
         })?;
-        match token {
+
+        match &token {
             Token::ControlIdentifier((location, id)) => {
+                // Handle control statements ($identifier)
                 let mut location = location.clone();
                 location.set_module(self.tokens.module_name.as_str());
-                let mut eq = self.tokens.next()?.context(error::EofSnafu {
-                    location: location.clone(),
-                })?;
-                let type_ = if matches!(eq, Token::Colon(_)) {
-                    let type_ = self.value_type()?;
-                    eq = self.tokens.next()?.context(error::EofSnafu {
-                        location: eq.location(Some(self.tokens.module_name.clone())),
-                    })?;
-                    Some(type_)
+
+                // Check for type annotation
+                let type_ = if let Some(Token::Colon(_)) = self.tokens.peek()? {
+                    self.tokens.discard();
+                    Some(self.value_type()?)
                 } else {
                     None
                 };
+
+                // Expect assignment operator
+                let eq = self.tokens.next()?.context(error::EofSnafu {
+                    location: location.clone(),
+                })?;
+
                 ensure!(
                     matches!(eq, Token::Assign(_)),
                     error::ExpectedSnafu {
@@ -389,6 +419,8 @@ impl<'source> Parser<'source> {
                         got: eq.clone(),
                     }
                 );
+
+                // Parse value and check type compatibility
                 let (value, vtype) = self.value()?;
                 if let Some(type_) = type_.as_ref() {
                     ensure!(
@@ -396,84 +428,123 @@ impl<'source> Parser<'source> {
                         error::AssignSnafu {
                             location: location.clone(),
                             left: type_.clone(),
-                            right: vtype.clone()
+                            right: vtype
                         }
                     );
                 }
+
                 Ok(Statement::new_control(id.as_str(), type_, value, meta)?)
             }
+
             Token::Identifier((location, id)) | Token::String((location, id)) => {
-                let mut location = location.clone();
-                location.set_module(self.tokens.module_name.as_str());
-                let front = self.tokens.peek()?.context(error::EofSnafu {
-                    location: location.clone(),
-                })?;
-                if matches!(front, Token::Colon(_)) || matches!(front, Token::Assign(_)) {
-                    let mut eq = self.tokens.next()?.context(error::EofSnafu {
-                        location: location.clone(),
-                    })?;
-                    let type_ = if matches!(eq, Token::Colon(_)) {
-                        let type_ = self.value_type()?;
-                        eq = self.tokens.next()?.context(error::EofSnafu {
-                            location: eq.location(Some(self.tokens.module_name.clone())),
-                        })?;
-                        Some(type_)
-                    } else {
-                        None
-                    };
-                    ensure!(
-                        matches!(eq, Token::Assign(_)),
-                        error::ExpectedSnafu {
-                            location: eq.location(Some(self.tokens.module_name.clone())),
-                            expected: "=",
-                            got: eq.clone(),
-                        }
-                    );
-                    let (value, vtype) = self.value()?;
-                    if let Some(type_) = type_.as_ref() {
-                        ensure!(
-                            vtype.can_assign(type_),
-                            error::AssignSnafu {
-                                location: location.clone(),
-                                left: type_.clone(),
-                                right: vtype.clone()
+                let mut loc = location.clone();
+                loc.set_module(self.tokens.module_name.as_str());
+
+                // Check if this is an assignment or a block
+                if let Some(token) = self.tokens.peek()? {
+                    match token {
+                        Token::Colon(_) | Token::Assign(_) => {
+                            // This is an assignment
+
+                            // Check for type annotation
+                            let type_ = if matches!(token, Token::Colon(_)) {
+                                self.tokens.discard();
+                                let type_ = self.value_type()?;
+
+                                // Now expect assignment operator
+                                let eq = self.tokens.next()?.context(error::EofSnafu {
+                                    location: loc.clone(),
+                                })?;
+
+                                ensure!(
+                                    matches!(eq, Token::Assign(_)),
+                                    error::ExpectedSnafu {
+                                        location: eq
+                                            .location(Some(self.tokens.module_name.clone())),
+                                        expected: "=",
+                                        got: eq.clone(),
+                                    }
+                                );
+
+                                Some(type_)
+                            } else {
+                                // No type annotation, just consume the assignment operator
+                                self.tokens.discard();
+                                None
+                            };
+
+                            // Parse value and check type compatibility
+                            let (value, vtype) = self.value()?;
+                            if let Some(type_) = type_.as_ref() {
+                                ensure!(
+                                    vtype.can_assign(type_),
+                                    error::AssignSnafu {
+                                        location: loc.clone(),
+                                        left: type_.clone(),
+                                        right: vtype
+                                    }
+                                );
                             }
-                        );
+
+                            Ok(Statement::new_assign(id.as_str(), type_, value, meta)?)
+                        }
+
+                        _ => {
+                            // This is a block
+                            let mut labels = Vec::with_capacity(4);
+
+                            // Parse labels until we hit the opening brace
+                            loop {
+                                match self.tokens.peek()? {
+                                    Some(Token::LBrace(_)) => {
+                                        self.tokens.discard();
+                                        break;
+                                    }
+                                    Some(Token::Comma(_)) => {
+                                        self.tokens.discard();
+                                    }
+                                    Some(_) => {
+                                        labels.push(self.value()?.0);
+                                    }
+                                    None => {
+                                        return error::ExpectedSnafu {
+                                            location: self.tokens.location(),
+                                            expected: "{",
+                                            got: token.clone(),
+                                        }
+                                        .fail();
+                                    }
+                                }
+                            }
+
+                            // Parse block contents
+                            let mut children = IndexMap::with_capacity(8);
+                            while let Some(stmt) = self.tokens.peek()? {
+                                match stmt {
+                                    Token::RBrace(_) => {
+                                        self.tokens.discard();
+                                        break;
+                                    }
+                                    _ => {
+                                        let value = self.statement()?;
+                                        children.insert(value.inject_id(), value);
+                                    }
+                                }
+                            }
+
+                            Ok(Statement::new_block(id.as_str(), labels, children, meta))
+                        }
                     }
-                    Ok(Statement::new_assign(id.as_str(), type_, value, meta)?)
                 } else {
-                    let mut labels: Vec<Value> = Vec::new();
-                    while let Some(label) = self.tokens.peek()? {
-                        match label {
-                            Token::LBrace(_) => {
-                                self.tokens.discard();
-                                break;
-                            }
-                            Token::Comma(_) => {
-                                self.tokens.discard();
-                                continue;
-                            }
-                            _ => {
-                                labels.push(self.value()?.0);
-                            }
-                        }
+                    error::ExpectedSnafu {
+                        location: self.tokens.location(),
+                        expected: "= or : or block contents",
+                        got: token.clone(),
                     }
-                    let mut children = IndexMap::new();
-                    while let Some(stmt) = self.tokens.peek()? {
-                        match stmt {
-                            Token::RBrace(_) => {
-                                self.tokens.discard();
-                                break;
-                            }
-                            _ => {
-                                let value = self.statement()?;
-                                children.insert(value.inject_id(), value);
-                            }
-                        }
-                    }
-                    Ok(Statement::new_block(id.as_str(), labels, children, meta))
+                    .fail()
                 }
             }
+
             value => error::ExpectedSnafu {
                 expected: "statement",
                 got: value.clone(),
@@ -485,7 +556,8 @@ impl<'source> Parser<'source> {
 
     fn module(&mut self) -> Result<Statement> {
         let parent_meta = self.metadata()?;
-        let mut children = IndexMap::new();
+        let mut children = IndexMap::with_capacity(16); // Pre-allocate with reasonable capacity
+
         while let Some(token) = self.tokens.peek()? {
             let meta = self.metadata()?;
             match token {
@@ -493,12 +565,14 @@ impl<'source> Parser<'source> {
                     let mut location = location.clone();
                     location.set_module(self.tokens.module_name.as_str());
                     self.tokens.discard();
+
+                    // Get section identifier
                     let id = self.tokens.next()?.context(error::EofSnafu {
                         location: location.clone(),
                     })?;
+
                     let id = match id {
-                        Token::Identifier((_, id)) => Ok(id),
-                        Token::String((_, id)) => Ok(id),
+                        Token::Identifier((_, id)) | Token::String((_, id)) => Ok(id),
                         value => error::ExpectedSnafu {
                             location: value.location(Some(self.tokens.module_name.clone())),
                             expected: "identifier or string",
@@ -506,9 +580,12 @@ impl<'source> Parser<'source> {
                         }
                         .fail(),
                     }?;
+
+                    // Ensure closing bracket
                     let close = self.tokens.next()?.context(error::EofSnafu {
                         location: self.tokens.location(),
                     })?;
+
                     ensure!(
                         matches!(close, Token::RBracket(_)),
                         error::ExpectedSnafu {
@@ -517,7 +594,9 @@ impl<'source> Parser<'source> {
                             got: close.clone()
                         }
                     );
-                    let mut statements = IndexMap::new();
+
+                    // Parse section statements
+                    let mut statements = IndexMap::with_capacity(8);
                     while let Some(stmt) = self.tokens.peek()? {
                         match stmt {
                             Token::LBracket(_) => break,
@@ -527,6 +606,7 @@ impl<'source> Parser<'source> {
                             }
                         }
                     }
+
                     let child = Statement::new_section(id.as_str(), statements, meta);
                     children.insert(child.inject_id(), child);
                 }
@@ -536,6 +616,7 @@ impl<'source> Parser<'source> {
                 }
             }
         }
+
         Ok(Statement::new_module(".", children, parent_meta))
     }
 }
