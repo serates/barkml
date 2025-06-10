@@ -1,20 +1,20 @@
 use std::{
     ffi::OsStr,
-    fs::{read_dir, File},
+    fs::{File, read_dir},
     io::{Read, Seek},
     path::Path,
 };
 
 use super::Loader;
+use crate::{Result, error};
 use crate::{
+    StatementData,
     ast::Statement,
     syn::{Parser, Token},
-    StatementData,
 };
-use crate::{error, Result};
 use indexmap::IndexMap;
 use logos::Logos;
-use snafu::{ensure, OptionExt};
+use snafu::{OptionExt, ensure};
 
 /// Standard loader for BarkML files
 ///
@@ -30,10 +30,10 @@ use snafu::{ensure, OptionExt};
 pub struct StandardLoader {
     /// Map of module names to their corresponding statements
     modules: IndexMap<String, Statement>,
-    
+
     /// Whether to allow collisions between modules (overwrite on conflict)
     collisions: bool,
-    
+
     /// Whether to resolve macros during loading
     resolve_macros: bool,
 }
@@ -79,13 +79,12 @@ impl StandardLoader {
             StatementData::Group(right_stmts) | StatementData::Labeled(_, right_stmts) => {
                 match &mut left.data {
                     // If the left statement is also a group or labeled statement, merge recursively
-                    StatementData::Group(ref mut left_stmts)
-                    | StatementData::Labeled(_, ref mut left_stmts) => {
+                    StatementData::Group(left_stmts) | StatementData::Labeled(_, left_stmts) => {
                         // Pre-allocate capacity if needed
                         if left_stmts.len() < left_stmts.len() + right_stmts.len() {
                             left_stmts.reserve(right_stmts.len());
                         }
-                        
+
                         // Merge each child statement
                         for (key, value) in right_stmts {
                             if let Some(target) = left_stmts.get_mut(key) {
@@ -187,12 +186,12 @@ impl StandardLoader {
     {
         let path = path.as_ref();
         let name = basename(path)?;
-        
+
         // Open and read the file
         let mut file = File::open(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
-        
+
         // Add the file as a module with its basename
         self.add_module(name.as_str(), &mut file, Some(name.clone()))
     }
@@ -216,12 +215,12 @@ impl StandardLoader {
     {
         let path = path.as_ref();
         let name = basename(path)?;
-        
+
         // Open and read the file
         let mut file = File::open(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
-        
+
         // Add the file to the "main" module, preserving the original filename for error reporting
         self.add_module("main", &mut file, Some(name))
     }
@@ -278,7 +277,7 @@ impl StandardLoader {
         P: AsRef<Path>,
     {
         let path = path.as_ref();
-        
+
         // Check if the path exists
         ensure!(
             path.try_exists().map_err(|e| error::Error::Io {
@@ -288,12 +287,12 @@ impl StandardLoader {
                 path: path.to_path_buf()
             }
         );
-        
+
         // Read the directory
         let dir_reader = read_dir(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
-        
+
         // Collect all .bml files
         let mut files = Vec::with_capacity(10); // Pre-allocate with reasonable capacity
         for entry in dir_reader {
@@ -305,15 +304,15 @@ impl StandardLoader {
                 files.push(entry_path);
             }
         }
-        
+
         // Sort files for deterministic processing order
         files.sort();
-        
+
         // Process each file
         for file in &files {
             self.add_file(file)?;
         }
-        
+
         Ok(self)
     }
 
@@ -392,13 +391,16 @@ impl Loader for StandardLoader {
 fn basename<P: AsRef<Path>>(path: P) -> Result<String> {
     let file_name = path.as_ref().file_name().context(error::BasenameSnafu)?;
     let file_name = file_name.to_str().context(error::BasenameSnafu)?;
-    
+
     // Handle the case where there might not be an extension
     if let Some(extension) = path.as_ref().extension() {
         let extension = extension.to_str().context(error::BasenameSnafu)?;
         // Add a dot to properly handle the extension
         let suffix = format!(".{}", extension);
-        Ok(file_name.strip_suffix(&suffix).unwrap_or(file_name).to_string())
+        Ok(file_name
+            .strip_suffix(&suffix)
+            .unwrap_or(file_name)
+            .to_string())
     } else {
         // No extension
         Ok(file_name.to_string())

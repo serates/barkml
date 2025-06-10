@@ -2,11 +2,11 @@
 name = "barkml"
 version = "0.8.2"
 description = "Declarative configuration language"
-repository = "https://github.com/awslabs/barkml"
+repository = "https://github.com/serates/barkml"
 categories = ["config"]
-authors = ["Jarrett Tierney <jmt@amazon.com>"]
+authors = ["Jarrett Tierney <jarrett.tierney@pm.me>"]
 license = "MIT-0"
-edition = "2021"
+edition = "2024"
 
 [features]
 default = ["full"]
