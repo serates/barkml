@@ -38,11 +38,12 @@ pub enum Error {
     },
     #[snafu(display("{location} - unexpected end of file reached"))]
     Eof { location: Location },
-    #[snafu(display("{location} - unexpected {got} when expecting {expected}"))]
+    #[snafu(display("{location} - unexpected {got} when expecting {expected}\n{context}"))]
     Expected {
         location: Location,
         expected: String,
         got: Token,
+        context: String,
     },
     #[snafu(display("{location} - invalid floating point: {source}"))]
     Float {

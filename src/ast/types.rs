@@ -174,23 +174,97 @@ pub struct Metadata {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Location {
+    /// Module name where the token was found
     pub module: Option<String>,
+    /// Line number (0-based)
     pub line: usize,
+    /// Column number (0-based)
     pub column: usize,
+    /// Original source text for the token
+    pub source_text: Option<String>,
+    /// Length of the token in characters
+    pub length: usize,
+    /// File path where the token was found
+    pub file_path: Option<String>,
 }
 
 impl Location {
-    pub(crate) fn set_module(&mut self, module: &str) {
+    /// Create a new location with basic information
+    pub fn new(line: usize, column: usize) -> Self {
+        Self {
+            module: None,
+            line,
+            column,
+            source_text: None,
+            length: 0,
+            file_path: None,
+        }
+    }
+    
+    /// Create a new location with full information
+    pub fn with_details(
+        module: Option<String>,
+        line: usize,
+        column: usize,
+        source_text: Option<String>,
+        length: usize,
+        file_path: Option<String>,
+    ) -> Self {
+        Self {
+            module,
+            line,
+            column,
+            source_text,
+            length,
+            file_path,
+        }
+    }
+    
+    /// Set the module name
+    pub fn set_module(&mut self, module: &str) {
         self.module = Some(module.to_string());
+    }
+    
+    /// Set the source text
+    pub fn set_source_text(&mut self, text: &str) {
+        self.source_text = Some(text.to_string());
+        self.length = text.len();
+    }
+    
+    /// Set the file path
+    pub fn set_file_path(&mut self, path: &str) {
+        self.file_path = Some(path.to_string());
+    }
+    
+    /// Get the human-readable position (1-based for display)
+    pub fn position(&self) -> (usize, usize) {
+        (self.line + 1, self.column + 1)
+    }
+    
+    /// Get the source context for error reporting
+    pub fn context(&self) -> String {
+        if let Some(source) = &self.source_text {
+            format!("{}", source)
+        } else {
+            String::new()
+        }
     }
 }
 
 impl fmt::Display for Location {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (line, column) = self.position();
+        
         if let Some(module) = self.module.as_ref() {
-            f.write_fmt(format_args!("[{}@{}:{}]", module, self.line, self.column))
+            if let Some(file_path) = self.file_path.as_ref() {
+                write!(f, "[{}@{}:{}:{}]", module, file_path, line, column)
+            } else {
+                write!(f, "[{}@{}:{}]", module, line, column)
+            }
+        } else if let Some(file_path) = self.file_path.as_ref() {
+            write!(f, "[{}:{}:{}]", file_path, line, column)
         } else {
-            f.write_fmt(format_args!("[{}:{}]", self.line, self.column))
+            write!(f, "[{}:{}]", line, column)
         }
     }
 }

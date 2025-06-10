@@ -20,6 +20,27 @@ impl<'source> Parser<'source> {
                     module: Some(name.to_string()),
                     line: 0,
                     column: 0,
+                    source_text: None,
+                    length: 0,
+                    file_path: None,
+                },
+            },
+        }
+    }
+
+    /// Create a new parser with file path information
+    pub fn with_file_path(name: &str, file_path: &str, lexer: Lexer<'source, Token>) -> Self {
+        Self {
+            tokens: TokenReader {
+                module_name: name.to_string(),
+                lexer: lexer.peekable(),
+                location: Location {
+                    module: Some(name.to_string()),
+                    line: 0,
+                    column: 0,
+                    source_text: None,
+                    length: 0,
+                    file_path: Some(file_path.to_string()),
                 },
             },
         }
@@ -101,12 +122,14 @@ impl<'source> Parser<'source> {
                 let mut location = location.clone();
                 location.set_module(self.tokens.module_name.as_str());
                 let tok = self.tokens.next()?.context(error::EofSnafu { location })?;
+                let tok_loc = tok.location(Some(self.tokens.module_name.clone()));
                 ensure!(
                     matches!(tok, Token::LBracket(_)),
                     error::ExpectedSnafu {
-                        location: tok.location(Some(self.tokens.module_name.clone())),
+                        location: tok_loc.clone(),
                         expected: "[",
-                        got: tok.clone()
+                        got: tok.clone(),
+                        context: "while parsing array type definition".to_string()
                     }
                 );
                 let mut children = Vec::new();
@@ -131,12 +154,14 @@ impl<'source> Parser<'source> {
                 let mut location = location.clone();
                 location.set_module(self.tokens.module_name.as_str());
                 let tok = self.tokens.next()?.context(error::EofSnafu { location })?;
+                let tok_loc = tok.location(Some(self.tokens.module_name.clone()));
                 ensure!(
                     matches!(tok, Token::LBrace(_)),
                     error::ExpectedSnafu {
-                        location: tok.location(Some(self.tokens.module_name.clone())),
+                        location: tok_loc.clone(),
                         expected: "{",
-                        got: tok.clone()
+                        got: tok.clone(),
+                        context: "while parsing table type definition".to_string()
                     }
                 );
                 let mut children = IndexMap::new();
@@ -162,18 +187,24 @@ impl<'source> Parser<'source> {
                                     location: got.location(Some(self.tokens.module_name.clone())),
                                     expected: "identifier or string value",
                                     got: got.clone(),
+                                    context: "while parsing table field key".to_string(),
                                 }
                                 .fail(),
                             }?;
                             let eq = self.tokens.next()?.context(error::EofSnafu {
                                 location: self.tokens.location(),
                             })?;
+                            let eq_loc = eq.location(Some(self.tokens.module_name.clone()));
                             ensure!(
                                 matches!(eq, Token::Colon(_)),
                                 error::ExpectedSnafu {
-                                    location: eq.location(Some(self.tokens.module_name.clone())),
+                                    location: eq_loc.clone(),
                                     expected: ":",
-                                    got: eq.clone()
+                                    got: eq.clone(),
+                                    context: format!(
+                                        "while parsing table field type for key '{}'",
+                                        id
+                                    )
                                 }
                             );
                             let subtype = self.value_type()?;
@@ -192,6 +223,7 @@ impl<'source> Parser<'source> {
                 ]
                 .join(", "),
                 got: token.clone(),
+                context: "while parsing value type".to_string(),
             }
             .fail(),
         }
@@ -346,13 +378,17 @@ impl<'source> Parser<'source> {
                                 location: id.0.clone(),
                             })?;
 
+                            let eq_loc = eq_tok.location(Some(self.tokens.module_name.clone()));
                             ensure!(
                                 matches!(eq_tok, Token::Assign(_)),
                                 error::ExpectedSnafu {
-                                    location: eq_tok
-                                        .location(Some(self.tokens.module_name.clone())),
+                                    location: eq_loc.clone(),
                                     expected: "=",
-                                    got: eq_tok.clone()
+                                    got: eq_tok.clone(),
+                                    context: format!(
+                                        "while parsing table entry for key '{}'",
+                                        id.1
+                                    )
                                 }
                             );
 
@@ -365,6 +401,7 @@ impl<'source> Parser<'source> {
                                 location,
                                 expected: ", } identifier string",
                                 got: token.clone(),
+                                context: "while parsing table entries".to_string(),
                             }
                             .fail()
                         }
@@ -379,7 +416,8 @@ impl<'source> Parser<'source> {
             _ => error::ExpectedSnafu {
                 location: token.location(Some(self.tokens.module_name.clone())),
                 expected: "value (null, bool, number, string, array, table, etc.)",
-                got: token,
+                got: token.clone(),
+                context: "while parsing a value expression".to_string(),
             }
             .fail(),
         }
@@ -411,12 +449,14 @@ impl<'source> Parser<'source> {
                     location: location.clone(),
                 })?;
 
+                let eq_loc = eq.location(Some(self.tokens.module_name.clone()));
                 ensure!(
                     matches!(eq, Token::Assign(_)),
                     error::ExpectedSnafu {
-                        location: eq.location(Some(self.tokens.module_name.clone())),
+                        location: eq_loc.clone(),
                         expected: "=",
                         got: eq.clone(),
+                        context: format!("while parsing control statement '${}'", id)
                     }
                 );
 
@@ -456,13 +496,14 @@ impl<'source> Parser<'source> {
                                     location: loc.clone(),
                                 })?;
 
+                                let eq_loc = eq.location(Some(self.tokens.module_name.clone()));
                                 ensure!(
                                     matches!(eq, Token::Assign(_)),
                                     error::ExpectedSnafu {
-                                        location: eq
-                                            .location(Some(self.tokens.module_name.clone())),
+                                        location: eq_loc.clone(),
                                         expected: "=",
                                         got: eq.clone(),
+                                        context: format!("while parsing assignment to '{}'", id)
                                     }
                                 );
 
@@ -511,6 +552,10 @@ impl<'source> Parser<'source> {
                                             location: self.tokens.location(),
                                             expected: "{",
                                             got: token.clone(),
+                                            context: format!(
+                                                "while parsing block statement '{}'",
+                                                id
+                                            ),
                                         }
                                         .fail();
                                     }
@@ -540,6 +585,10 @@ impl<'source> Parser<'source> {
                         location: self.tokens.location(),
                         expected: "= or : or block contents",
                         got: token.clone(),
+                        context: format!(
+                            "while parsing identifier '{}' - expected assignment or block",
+                            id
+                        ),
                     }
                     .fail()
                 }
@@ -549,6 +598,8 @@ impl<'source> Parser<'source> {
                 expected: "statement",
                 got: value.clone(),
                 location: value.location(Some(self.tokens.module_name.clone())),
+                context: "Expected a statement (assignment, control statement, or block)"
+                    .to_string(),
             }
             .fail(),
         }
@@ -577,6 +628,7 @@ impl<'source> Parser<'source> {
                             location: value.location(Some(self.tokens.module_name.clone())),
                             expected: "identifier or string",
                             got: value.clone(),
+                            context: "while parsing section name".to_string(),
                         }
                         .fail(),
                     }?;
@@ -586,12 +638,14 @@ impl<'source> Parser<'source> {
                         location: self.tokens.location(),
                     })?;
 
+                    let close_loc = close.location(Some(self.tokens.module_name.clone()));
                     ensure!(
                         matches!(close, Token::RBracket(_)),
                         error::ExpectedSnafu {
-                            location: close.location(Some(self.tokens.module_name.clone())),
+                            location: close_loc.clone(),
                             expected: "]",
-                            got: close.clone()
+                            got: close.clone(),
+                            context: format!("while parsing section declaration '[{}]'", id)
                         }
                     );
 
@@ -872,6 +926,9 @@ mod test {
                                 module: None,
                                 line: 0,
                                 column: 0,
+                                file_path: None,
+                                length: 0,
+                                source_text: None,
                             },
                             comment: None,
                             label: Some("Hint".to_string()),
@@ -882,6 +939,9 @@ mod test {
                             module: None,
                             line: 0,
                             column: 0,
+                            file_path: None,
+                            length: 0,
+                            source_text: None,
                         },
                         comment: Some("Comment".to_string()),
                         label: None,
@@ -921,6 +981,9 @@ mod test {
                                 module: None,
                                 line: 0,
                                 column: 0,
+                                file_path: None,
+                                length: 0,
+                                source_text: None,
                             },
                             comment: None,
                             label: Some("Hint".to_string()),
@@ -931,6 +994,9 @@ mod test {
                             module: None,
                             line: 0,
                             column: 0,
+                            file_path: None,
+                            length: 0,
+                            source_text: None,
                         },
                         comment: Some("Comment".to_string()),
                         label: None,
@@ -961,6 +1027,9 @@ mod test {
                             module: None,
                             line: 0,
                             column: 0,
+                            file_path: None,
+                            length: 0,
+                            source_text: None,
                         },
                         comment: Some("Comment".to_string()),
                         label: None,

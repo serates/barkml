@@ -31,12 +31,18 @@ fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
     Skip
 }
 
-// Creates a source location
+// Creates a source location with detailed information
 fn base_callback(lex: &mut Lexer<Token>) -> Location {
+    let span = lex.span();
+    let source_text = lex.slice().to_string();
+    
     Location {
         module: None,
         line: lex.extras.line,
-        column: lex.span().start - lex.extras.column,
+        column: span.start - lex.extras.column,
+        source_text: Some(source_text),
+        length: span.end - span.start,
+        file_path: None,
     }
 }
 
