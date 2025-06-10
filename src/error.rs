@@ -13,22 +13,22 @@ use crate::{
 #[snafu(visibility(pub))]
 pub enum Error {
     #[snafu(display(
-        "{location} - cannot assign a value of type '{right}' to a field with type '{left}'"
+        "{location} - type error: cannot assign a value of type '{right}' to a field with type '{left}'"
     ))]
     Assign {
         location: Location,
         left: ValueType,
         right: ValueType,
     },
-    #[snafu(display("Could not resolve basename of path"))]
+    #[snafu(display("failed to resolve basename of path"))]
     Basename,
-    #[snafu(display("{location} - invalid base64: {source}"))]
+    #[snafu(display("{location} - invalid base64 encoding: {source}"))]
     Base64 {
         location: Location,
         source: base64::DecodeError,
     },
     #[snafu(display(
-        "Collision occured between {left_id}({left_location}) and {right_id}({right_location})"
+        "name collision between {left_id} ({left_location}) and {right_id} ({right_location})"
     ))]
     Collision {
         left_id: String,
@@ -36,55 +36,55 @@ pub enum Error {
         right_id: String,
         right_location: Location,
     },
-    #[snafu(display("{location} - unexpected end of file reached"))]
+    #[snafu(display("{location} - unexpected end of file"))]
     Eof { location: Location },
-    #[snafu(display("{location} - unexpected {got} when expecting {expected}\n{context}"))]
+    #[snafu(display("{location} - syntax error: expected {expected}, found {got}\n{context}"))]
     Expected {
         location: Location,
         expected: String,
         got: Token,
         context: String,
     },
-    #[snafu(display("{location} - invalid floating point: {source}"))]
+    #[snafu(display("{location} - invalid floating point number: {source}"))]
     Float {
         location: Location,
         source: ParseFloatError,
     },
-    #[snafu(display("implicit conversion from '{left}' to '{right}' is not allowed"))]
+    #[snafu(display("type error: implicit conversion from '{left}' to '{right}' is not allowed"))]
     ImplicitConvert { left: ValueType, right: ValueType },
     #[snafu(display("{location} - invalid integer: {source}"))]
     Integer {
         location: Location,
         source: ParseIntError,
     },
-    #[snafu(display("IO error occured during loading: {reason}"))]
+    #[snafu(display("i/o error occurred during loading: {reason}"))]
     Io { reason: String },
-    #[snafu(display("{location} - an infinite loop was detected during macro resolution"))]
+    #[snafu(display("{location} - infinite loop detected during macro resolution"))]
     Loop { location: Location },
-    #[snafu(display("{location} - no element with index '{index}'"))]
+    #[snafu(display("{location} - array index out of bounds: no element at index {index}"))]
     NoElement { location: Location, index: usize },
-    #[snafu(display("{location} - field not found: {field}"))]
+    #[snafu(display("{location} - field not found: '{field}'"))]
     NoField { location: Location, field: String },
-    #[snafu(display("{location} - field with name '{field}' is not a value"))]
+    #[snafu(display("{location} - field '{field}' is not a value"))]
     NoValue { location: Location, field: String },
-    #[snafu(display("{location} - could not locate value to resolve macro at path: {path}"))]
+    #[snafu(display("{location} - macro resolution failed: could not locate value at path '{path}'"))]
     NoMacro { location: Location, path: String },
     #[snafu(display(
-        "No main module defined, the standard loader requires at least one main module to load"
+        "missing main module: the standard loader requires at least one main module to load"
     ))]
     NoMain,
-    #[snafu(display("No such file or directory '{}'", path.display()))]
+    #[snafu(display("file not found: '{}'", path.display()))]
     NotFound { path: PathBuf },
     #[snafu(display("{location} - not a scope with fields"))]
     NotScope { location: Location },
     #[snafu(display("{location} - invalid semantic version requirement: {reason}"))]
     Require { location: Location, reason: String },
-    #[snafu(display("Could not find file named {name}.bml or directory named {name}.d in any of the search paths:\n{}", search_paths.iter().map(|x| x.to_string_lossy().to_string()).collect::<Vec<_>>().join("\n")))]
+    #[snafu(display("module not found: could not find file named {name}.bml or directory named {name}.d in any of these paths:\n{}", search_paths.iter().map(|x| x.to_string_lossy().to_string()).collect::<Vec<_>>().join("\n")))]
     Search {
         name: String,
         search_paths: Vec<PathBuf>,
     },
-    #[snafu(display("unknown error occured"))]
+    #[snafu(display("unknown error occurred"))]
     #[default]
     Unknown,
     #[snafu(display("{location} - invalid semantic version: {reason}"))]
