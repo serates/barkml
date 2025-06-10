@@ -8,47 +8,102 @@ use snafu::OptionExt;
 use std::fmt;
 use uuid::Uuid;
 
-/// Stores the actual in-memory data for a value
+/// Stores the actual in-memory data for a value in BarkML
+///
+/// This enum represents all possible data types that can be stored in a BarkML value.
+/// Each variant corresponds to a specific data type in the language.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Data {
+    /// String value ('text')
     String(String),
+    
+    /// Generic signed integer
     Signed(i64),
+    /// 8-bit signed integer
     I8(i8),
+    /// 16-bit signed integer
     I16(i16),
+    /// 32-bit signed integer
     I32(i32),
+    /// 64-bit signed integer
     I64(i64),
+    /// 128-bit signed integer
     I128(i128),
+    
+    /// Generic unsigned integer
     Unsigned(u64),
+    /// 8-bit unsigned integer
     U8(u8),
+    /// 16-bit unsigned integer
     U16(u16),
+    /// 32-bit unsigned integer
     U32(u32),
+    /// 64-bit unsigned integer
     U64(u64),
+    /// 128-bit unsigned integer
     U128(u128),
+    
+    /// Generic floating point number
     Float(f64),
+    /// 32-bit floating point number
     F32(f32),
+    /// 64-bit floating point number
     F64(f64),
+    
+    /// Binary data (b'base64encoded')
     Bytes(Vec<u8>),
+    /// Boolean value (true/false)
     Bool(bool),
+    /// Semantic version (1.2.3)
     Version(semver::Version),
+    /// Version requirement (^1.2.3, ~2.0)
     Require(semver::VersionReq),
+    /// Macro reference (m'name' or m!name)
     Macro(String),
+    /// Symbol identifier (:symbol)
     Symbol(String),
+    /// Null value
     Null,
+    /// Array of values
     Array(Vec<Value>),
+    /// Table (key-value mapping)
     Table(IndexMap<String, Value>),
 }
 
-/// Represents an individual value
+/// Represents an individual value in the BarkML language
+///
+/// A Value is the fundamental unit of data in BarkML. It contains the actual data,
+/// a unique identifier, and metadata about the value's source location and annotations.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Value {
-    /// Unique uuid for the value
+    /// Unique identifier for the value, used for reference tracking and macro resolution
     pub uid: Uuid,
 
-    /// Data of the value
+    /// The actual data contained in this value
     pub data: Data,
 
-    /// Value metadata
+    /// Metadata including source location, comments, and labels
     pub meta: Metadata,
+}
+
+impl Value {
+    /// Creates a new Value with the given data and metadata
+    pub fn new(data: Data, meta: Metadata) -> Self {
+        Self {
+            uid: Uuid::now_v7(),
+            data,
+            meta,
+        }
+    }
+    
+    /// Creates a deep clone of this value with a new UUID
+    pub fn deep_clone(&self) -> Self {
+        Self {
+            uid: Uuid::now_v7(),
+            data: self.data.clone(),
+            meta: self.meta.clone(),
+        }
+    }
 }
 
 impl PartialEq for Value {

@@ -7,33 +7,67 @@ use std::fmt;
 use uuid::Uuid;
 
 /// Contains the actual set of data for a statement
+///
+/// This enum represents the different kinds of data that can be stored in a statement,
+/// depending on the statement type.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum StatementData {
-    /// Blocks need to store the labels and contents
+    /// Data for block statements, which have labels and child statements
+    ///
+    /// The first parameter is a vector of label values.
+    /// The second parameter is a map of child statements indexed by their IDs.
     Labeled(Vec<Value>, IndexMap<String, Statement>),
-    /// Sections and Modules are just the substatements
+    
+    /// Data for section and module statements, which contain child statements
+    ///
+    /// The parameter is a map of child statements indexed by their IDs.
     Group(IndexMap<String, Statement>),
-    /// Control and Assignments are to a single value
+    
+    /// Data for control and assignment statements, which contain a single value
+    ///
+    /// The parameter is the value assigned to the statement.
     Single(Value),
 }
 
-/// Represents top-level statements and groupings
+/// Represents top-level statements and groupings in the BarkML language
+///
+/// A Statement is a fundamental structural element in BarkML. It can represent
+/// assignments, control statements, blocks, sections, or modules. Each statement
+/// has a unique identifier, a type, metadata, and associated data.
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Statement {
-    /// Unique uuid of the statement
+    /// Unique identifier for the statement, used for reference tracking
     pub uid: Uuid,
 
-    /// Id of the statement
+    /// Identifier name of the statement (e.g., variable name, block name)
     pub id: String,
 
-    /// Statement type
+    /// Type information for the statement
     pub type_: StatementType,
 
-    /// Metadata for the statement
+    /// Metadata including source location, comments, and labels
     pub meta: Metadata,
 
-    /// Data for statement
+    /// The actual data contained in this statement
     pub data: StatementData,
+}
+
+impl Statement {
+    /// Creates a new Statement with the given properties
+    pub fn new(
+        id: &str,
+        type_: StatementType,
+        data: StatementData,
+        meta: Metadata,
+    ) -> Self {
+        Self {
+            uid: Uuid::now_v7(),
+            id: id.to_string(),
+            type_,
+            meta,
+            data,
+        }
+    }
 }
 
 impl PartialEq for Statement {

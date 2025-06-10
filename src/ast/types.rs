@@ -74,10 +74,26 @@ pub enum ValueType {
 impl ValueType {
     /// Checks if the right type can be assigned to the left when a type requirement
     /// is not specified.
+    ///
+    /// This function implements the type compatibility rules for BarkML, determining
+    /// whether a value of one type can be assigned to a variable of another type.
+    ///
+    /// # Arguments
+    ///
+    /// * `right` - The type of the value being assigned
+    ///
+    /// # Returns
+    ///
+    /// `true` if the assignment is valid, `false` otherwise
     pub fn can_assign(&self, right: &Self) -> bool {
         match self {
+            // String types are only compatible with other strings
             Self::String => matches!(right, Self::String),
+            
+            // I64 can accept signed integers and unsigned integers that fit
             Self::I64 => matches!(right, Self::I64 | Self::Signed | Self::Unsigned),
+            
+            // Generic signed integer can accept any integer type
             Self::Signed => matches!(
                 right,
                 Self::I8
@@ -91,15 +107,53 @@ impl ValueType {
                     | Self::U64
                     | Self::Unsigned
             ),
-            Self::U64 => matches!(right, Self::U64) || matches!(right, Self::Unsigned),
-            Self::F64 => matches!(right, Self::F64) || matches!(right, Self::Float),
+            
+            // U64 can accept unsigned integers
+            Self::U64 => matches!(right, Self::U64 | Self::Unsigned),
+            
+            // F64 can accept F64 or generic float
+            Self::F64 => matches!(right, Self::F64 | Self::Float),
+            
+            // Generic unsigned integer can accept any unsigned integer type
             Self::Unsigned => matches!(
                 right,
                 Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::Unsigned
             ),
+            
+            // Generic float can accept any float type
             Self::Float => matches!(right, Self::Float | Self::F64 | Self::F32),
+            
+            // All other types require exact match
             value => value == right,
         }
+    }
+    
+    /// Determines if this type is a numeric type
+    pub fn is_numeric(&self) -> bool {
+        matches!(
+            self,
+            Self::Signed | Self::Unsigned | Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::I128 |
+            Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::U128 | Self::Float | Self::F32 | Self::F64
+        )
+    }
+    
+    /// Determines if this type is an integer type
+    pub fn is_integer(&self) -> bool {
+        matches!(
+            self,
+            Self::Signed | Self::Unsigned | Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::I128 |
+            Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::U128
+        )
+    }
+    
+    /// Determines if this type is a floating point type
+    pub fn is_float(&self) -> bool {
+        matches!(self, Self::Float | Self::F32 | Self::F64)
+    }
+    
+    /// Determines if this type is a compound type (array or table)
+    pub fn is_compound(&self) -> bool {
+        matches!(self, Self::Array(_) | Self::Table(_))
     }
 }
 
@@ -150,26 +204,80 @@ impl fmt::Display for ValueType {
     }
 }
 
-/// Represents the type of a statement
+/// Represents the type of a statement in the BarkML language
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum StatementType {
+    /// Control statement ($identifier = value)
+    /// Stores the expected type of the value
     Control(ValueType),
+    
+    /// Assignment statement (identifier = value)
+    /// Stores the expected type of the value
     Assignment(ValueType),
+    
+    /// Block statement (identifier labels { statements })
+    /// Stores the types of labels and contents
     Block {
+        /// Types of the label values
         labels: Vec<ValueType>,
+        /// Types of the contained statements
         contents: IndexMap<String, Self>,
     },
+    
+    /// Section statement ([identifier] statements)
+    /// Stores the types of contained statements
     Section(IndexMap<String, Self>),
+    
+    /// Module statement (top-level container)
+    /// Stores the types of contained statements
     Module(IndexMap<String, Self>),
 }
 
 /// Stores the metadata associated with a value or statement
-/// currently supports a !label and a # Comment
+///
+/// Metadata provides additional information about AST nodes, including source location,
+/// comments, and labels. This information is useful for error reporting, documentation
+/// generation, and preserving the original structure of the code.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Metadata {
+    /// Source location information
     pub location: Location,
+    
+    /// Optional comment associated with the node (from # or /* */ comments)
     pub comment: Option<String>,
+    
+    /// Optional label associated with the node (from !label syntax)
     pub label: Option<String>,
+}
+
+impl Metadata {
+    /// Creates a new Metadata instance with the given location
+    pub fn new(location: Location) -> Self {
+        Self {
+            location,
+            comment: None,
+            label: None,
+        }
+    }
+    
+    /// Creates a new Metadata instance with location, comment, and label
+    pub fn with_details(location: Location, comment: Option<String>, label: Option<String>) -> Self {
+        Self {
+            location,
+            comment,
+            label,
+        }
+    }
+    
+    /// Returns true if this metadata has a comment
+    pub fn has_comment(&self) -> bool {
+        self.comment.is_some()
+    }
+    
+    /// Returns true if this metadata has a label
+    pub fn has_label(&self) -> bool {
+        self.label.is_some()
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -242,9 +350,46 @@ impl Location {
     }
     
     /// Get the source context for error reporting
+    ///
+    /// Returns the source text if available, or an empty string if not.
+    /// This is useful for providing context in error messages.
     pub fn context(&self) -> String {
         if let Some(source) = &self.source_text {
-            format!("{}", source)
+            source.clone()
+        } else {
+            String::new()
+        }
+    }
+    
+    /// Get a formatted source context with line numbers for error reporting
+    ///
+    /// Returns a formatted string with line numbers and the source text,
+    /// highlighting the current line if possible.
+    pub fn formatted_context(&self) -> String {
+        if let Some(source) = &self.source_text {
+            let lines: Vec<&str> = source.lines().collect();
+            let line_num = self.line;
+            
+            // Determine the range of lines to show (up to 2 lines before and after)
+            let start_line = if line_num > 2 { line_num - 2 } else { 0 };
+            let end_line = std::cmp::min(line_num + 2, lines.len());
+            
+            let mut result = String::new();
+            for i in start_line..end_line {
+                let line_display = i + 1; // 1-based line numbers for display
+                if i == line_num {
+                    // Highlight the current line
+                    result.push_str(&format!("-> {}: {}\n", line_display, lines[i]));
+                    
+                    // Add caret pointing to the column
+                    let spaces = "   ".len() + line_display.to_string().len() + 2 + self.column;
+                    result.push_str(&format!("{}^\n", " ".repeat(spaces)));
+                } else {
+                    result.push_str(&format!("   {}: {}\n", line_display, lines[i]));
+                }
+            }
+            
+            result
         } else {
             String::new()
         }

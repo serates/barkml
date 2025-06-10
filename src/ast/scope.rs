@@ -6,11 +6,23 @@ use snafu::ensure;
 use std::cmp::max;
 use uuid::Uuid;
 
-/// Scope is used to resolve a parent statement (should be a module)
-/// to replace all macros with their appropriate values
+/// Scope is used to resolve macros and manage symbol references
+///
+/// The Scope struct provides functionality for resolving macro references within a BarkML
+/// document. It builds a symbol table from a root statement (typically a module) and
+/// provides methods to resolve all macro references to their actual values.
+///
+/// This is a key part of the BarkML processing pipeline, as it handles the substitution
+/// of macro references with their actual values, allowing for powerful templating and
+/// reuse capabilities in the language.
 pub struct Scope {
+    /// The root statement (typically a module) that defines the scope
     root: Statement,
+    
+    /// Maps fully-qualified paths to their corresponding values
     symbol_table: IndexMap<String, Value>,
+    
+    /// Maps value UIDs to their fully-qualified paths for efficient lookup
     path_lookup: IndexMap<Uuid, String>,
 }
 
