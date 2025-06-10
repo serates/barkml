@@ -16,11 +16,25 @@ use indexmap::IndexMap;
 use logos::Logos;
 use snafu::{ensure, OptionExt};
 
-/// This is the standard barkml loader. It supports multiple methodologies of reading and combining
-/// barkml files.
+/// Standard loader for BarkML files
+///
+/// This loader supports multiple methodologies for reading and combining BarkML files:
+/// - Loading individual files
+/// - Loading directories of files
+/// - Merging multiple files into a single module
+/// - Importing files as separate modules
+/// - Auto-discovering files in search paths
+///
+/// The loader can be configured to handle collisions between modules and to
+/// enable or disable macro resolution.
 pub struct StandardLoader {
+    /// Map of module names to their corresponding statements
     modules: IndexMap<String, Statement>,
+    
+    /// Whether to allow collisions between modules (overwrite on conflict)
     collisions: bool,
+    
+    /// Whether to resolve macros during loading
     resolve_macros: bool,
 }
 
@@ -40,24 +54,51 @@ impl Default for StandardLoader {
 }
 
 impl StandardLoader {
+    /// Merges the contents of the right statement into the left statement
+    ///
+    /// This function recursively merges two statements, handling different statement types
+    /// and respecting the collision policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `left` - The target statement to merge into (modified in-place)
+    /// * `right` - The source statement to merge from
+    /// * `is_collision_allowed` - Whether to allow collisions (overwrite on conflict)
+    ///
+    /// # Returns
+    ///
+    /// Ok(()) if the merge was successful, or an error if there was a collision
+    /// and collisions are not allowed
     fn merge_into(
         left: &mut Statement,
         right: &Statement,
         is_collision_allowed: bool,
     ) -> Result<()> {
         match &right.data {
+            // If the right statement is a group or labeled statement, merge its children
             StatementData::Group(right_stmts) | StatementData::Labeled(_, right_stmts) => {
                 match &mut left.data {
+                    // If the left statement is also a group or labeled statement, merge recursively
                     StatementData::Group(ref mut left_stmts)
                     | StatementData::Labeled(_, ref mut left_stmts) => {
+                        // Pre-allocate capacity if needed
+                        if left_stmts.len() < left_stmts.len() + right_stmts.len() {
+                            left_stmts.reserve(right_stmts.len());
+                        }
+                        
+                        // Merge each child statement
                         for (key, value) in right_stmts {
                             if let Some(target) = left_stmts.get_mut(key) {
+                                // Recursive merge for existing keys
                                 Self::merge_into(target, value, is_collision_allowed)?;
                             } else {
+                                // Simple insert for new keys
                                 left_stmts.insert(key.clone(), value.clone());
                             }
                         }
                     }
+                    // If the left statement is not a group or labeled statement, replace it
+                    // if collisions are allowed
                     _ => {
                         ensure!(
                             is_collision_allowed,
@@ -72,6 +113,8 @@ impl StandardLoader {
                     }
                 }
             }
+            // If the right statement is a single value, replace the left statement
+            // if collisions are allowed
             StatementData::Single(_) => {
                 ensure!(
                     is_collision_allowed,
@@ -125,29 +168,61 @@ impl StandardLoader {
         Ok(self)
     }
 
-    // Add a single file to this loader as a new module
+    /// Add a single file to this loader as a new module
+    ///
+    /// This method reads a .bml file and adds it as a new module with the same name
+    /// as the file (without extension).
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the .bml file
+    ///
+    /// # Returns
+    ///
+    /// A reference to self for method chaining, or an error if the file
+    /// cannot be read or processed
     pub fn import<P>(&mut self, path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
         let name = basename(path)?;
+        
+        // Open and read the file
         let mut file = File::open(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
+        
+        // Add the file as a module with its basename
         self.add_module(name.as_str(), &mut file, Some(name.clone()))
     }
 
-    // Add a single file to this loader and merge it into the main module
+    /// Add a single file to this loader and merge it into the main module
+    ///
+    /// This method reads a .bml file and merges its contents into the main module.
+    /// Multiple files can be added this way to build up a composite configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the .bml file
+    ///
+    /// # Returns
+    ///
+    /// A reference to self for method chaining, or an error if the file
+    /// cannot be read or processed
     pub fn add_file<P>(&mut self, path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
         let name = basename(path)?;
+        
+        // Open and read the file
         let mut file = File::open(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
+        
+        // Add the file to the "main" module, preserving the original filename for error reporting
         self.add_module("main", &mut file, Some(name))
     }
 
@@ -185,12 +260,26 @@ impl StandardLoader {
         Ok(self)
     }
 
-    // Add a directory to this loader and merge all files into the main module
+    /// Add a directory to this loader and merge all files into the main module
+    ///
+    /// This method reads all .bml files in the specified directory and merges them
+    /// into the main module. Files are processed in alphabetical order.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the directory containing .bml files
+    ///
+    /// # Returns
+    ///
+    /// A reference to self for method chaining, or an error if the directory
+    /// cannot be read or a file cannot be processed
     pub fn add_dir<P>(&mut self, path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
+        
+        // Check if the path exists
         ensure!(
             path.try_exists().map_err(|e| error::Error::Io {
                 reason: e.to_string(),
@@ -199,23 +288,32 @@ impl StandardLoader {
                 path: path.to_path_buf()
             }
         );
+        
+        // Read the directory
         let dir_reader = read_dir(path).map_err(|e| error::Error::Io {
             reason: e.to_string(),
         })?;
-        let mut files = Vec::new();
+        
+        // Collect all .bml files
+        let mut files = Vec::with_capacity(10); // Pre-allocate with reasonable capacity
         for entry in dir_reader {
             let entry = entry.map_err(|e| error::Error::Io {
                 reason: e.to_string(),
             })?;
             let entry_path = entry.path();
             if entry_path.is_file() && entry_path.extension() == Some(OsStr::new("bml")) {
-                files.push(entry_path.clone());
+                files.push(entry_path);
             }
         }
+        
+        // Sort files for deterministic processing order
         files.sort();
-        for file in files.iter() {
+        
+        // Process each file
+        for file in &files {
             self.add_file(file)?;
         }
+        
         Ok(self)
     }
 
@@ -250,17 +348,27 @@ impl StandardLoader {
 }
 
 impl Loader for StandardLoader {
+    /// Check if macro resolution is enabled for this loader
     fn is_resolution_enabled(&self) -> bool {
         self.resolve_macros
     }
 
+    /// Disable macro resolution for this loader
+    ///
+    /// When disabled, macros in the loaded content will remain as-is.
     fn skip_macro_resolution(&mut self) -> Result<&mut Self> {
         self.resolve_macros = false;
         Ok(self)
     }
 
-    /// Load all the configuration files and return everything as
-    /// a single module
+    /// Read all the configuration files and return everything as a single module
+    ///
+    /// This method retrieves the "main" module that has been built up through
+    /// calls to add_file, add_dir, or main.
+    ///
+    /// # Returns
+    ///
+    /// The main module statement, or an error if no main module has been defined
     fn read(&self) -> Result<Statement> {
         self.modules
             .get("main")
@@ -269,12 +377,32 @@ impl Loader for StandardLoader {
     }
 }
 
+/// Extracts the basename (filename without extension) from a path
+///
+/// This function handles the common case of extracting just the filename
+/// without its extension from a path.
+///
+/// # Arguments
+///
+/// * `path` - The path to extract the basename from
+///
+/// # Returns
+///
+/// The basename as a String, or an error if the path is invalid
 fn basename<P: AsRef<Path>>(path: P) -> Result<String> {
     let file_name = path.as_ref().file_name().context(error::BasenameSnafu)?;
     let file_name = file_name.to_str().context(error::BasenameSnafu)?;
-    let extension = path.as_ref().extension().context(error::BasenameSnafu)?;
-    let extension = extension.to_str().context(error::BasenameSnafu)?;
-    Ok(file_name.strip_suffix(extension).unwrap().to_string())
+    
+    // Handle the case where there might not be an extension
+    if let Some(extension) = path.as_ref().extension() {
+        let extension = extension.to_str().context(error::BasenameSnafu)?;
+        // Add a dot to properly handle the extension
+        let suffix = format!(".{}", extension);
+        Ok(file_name.strip_suffix(&suffix).unwrap_or(file_name).to_string())
+    } else {
+        // No extension
+        Ok(file_name.to_string())
+    }
 }
 
 #[cfg(test)]
