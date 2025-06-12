@@ -1,4 +1,4 @@
-use crate::{error, Result};
+use crate::{Result, error};
 use base64::Engine;
 use logos::{Lexer, Logos, Skip};
 use snafu::ResultExt;
@@ -35,7 +35,7 @@ fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
 fn base_callback(lex: &mut Lexer<Token>) -> Location {
     let span = lex.span();
     let source_text = lex.slice().to_string();
-    
+
     Location {
         module: None,
         line: lex.extras.line,
@@ -57,19 +57,19 @@ pub enum Token {
 
     Error(Location),
 
-    #[token("true", base_callback)]
-    #[token("True", base_callback)]
-    #[token("yes", base_callback)]
-    #[token("Yes", base_callback)]
-    #[token("On", base_callback)]
-    #[token("on", base_callback)]
+    #[token("true", base_callback, priority = 11)]
+    #[token("True", base_callback, priority = 11)]
+    #[token("yes", base_callback, priority = 11)]
+    #[token("Yes", base_callback, priority = 11)]
+    #[token("On", base_callback, priority = 11)]
+    #[token("on", base_callback, priority = 11)]
     True(Location),
-    #[token("false", base_callback)]
-    #[token("False", base_callback)]
-    #[token("no", base_callback)]
-    #[token("No", base_callback)]
-    #[token("Off", base_callback)]
-    #[token("off", base_callback)]
+    #[token("false", base_callback, priority = 11)]
+    #[token("False", base_callback, priority = 11)]
+    #[token("no", base_callback, priority = 11)]
+    #[token("No", base_callback, priority = 11)]
+    #[token("Off", base_callback, priority = 11)]
+    #[token("off", base_callback, priority = 11)]
     False(Location),
 
     #[token("!", base_callback)]
@@ -301,6 +301,78 @@ impl Token {
                 src
             }
             _ => Location::default(),
+        }
+    }
+
+    /// Compares two tokens ignoring their location information
+    pub fn eq_kind(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Newline, Self::Newline) => true,
+            (Self::Error(_), Self::Error(_)) => true,
+            (Self::True(_), Self::True(_)) => true,
+            (Self::False(_), Self::False(_)) => true,
+            (Self::Exclaim(_), Self::Exclaim(_)) => true,
+            (Self::Dollar(_), Self::Dollar(_)) => true,
+            (Self::LBracket(_), Self::LBracket(_)) => true,
+            (Self::RBracket(_), Self::RBracket(_)) => true,
+            (Self::LBrace(_), Self::LBrace(_)) => true,
+            (Self::RBrace(_), Self::RBrace(_)) => true,
+            (Self::LParen(_), Self::LParen(_)) => true,
+            (Self::RParen(_), Self::RParen(_)) => true,
+            (Self::Assign(_), Self::Assign(_)) => true,
+            (Self::Colon(_), Self::Colon(_)) => true,
+            (Self::Question(_), Self::Question(_)) => true,
+            (Self::Comma(_), Self::Comma(_)) => true,
+            (Self::KeyNull(_), Self::KeyNull(_)) => true,
+            (Self::KeyBool(_), Self::KeyBool(_)) => true,
+            (Self::KeyString(_), Self::KeyString(_)) => true,
+            (Self::KeyInt(_), Self::KeyInt(_)) => true,
+            (Self::KeyUInt(_), Self::KeyUInt(_)) => true,
+            (Self::KeyInt8(_), Self::KeyInt8(_)) => true,
+            (Self::KeyUInt8(_), Self::KeyUInt8(_)) => true,
+            (Self::KeyInt16(_), Self::KeyInt16(_)) => true,
+            (Self::KeyUInt16(_), Self::KeyUInt16(_)) => true,
+            (Self::KeyInt32(_), Self::KeyInt32(_)) => true,
+            (Self::KeyUInt32(_), Self::KeyUInt32(_)) => true,
+            (Self::KeyInt64(_), Self::KeyInt64(_)) => true,
+            (Self::KeyUInt64(_), Self::KeyUInt64(_)) => true,
+            (Self::KeyInt128(_), Self::KeyInt128(_)) => true,
+            (Self::KeyUInt128(_), Self::KeyUInt128(_)) => true,
+            (Self::KeyFloat(_), Self::KeyFloat(_)) => true,
+            (Self::KeyFloat32(_), Self::KeyFloat32(_)) => true,
+            (Self::KeyFloat64(_), Self::KeyFloat64(_)) => true,
+            (Self::KeyBytes(_), Self::KeyBytes(_)) => true,
+            (Self::KeyVersion(_), Self::KeyVersion(_)) => true,
+            (Self::KeyRequire(_), Self::KeyRequire(_)) => true,
+            (Self::KeyLabel(_), Self::KeyLabel(_)) => true,
+            (Self::KeyArray(_), Self::KeyArray(_)) => true,
+            (Self::KeyTable(_), Self::KeyTable(_)) => true,
+            (Self::KeySection(_), Self::KeySection(_)) => true,
+            (Self::KeyBlock(_), Self::KeyBlock(_)) => true,
+            (Self::KeySymbol(_), Self::KeySymbol(_)) => true,
+            (Self::KeyModule(_), Self::KeyModule(_)) => true,
+            (Self::KeyUse(_), Self::KeyUse(_)) => true,
+            (Self::KeyAs(_), Self::KeyAs(_)) => true,
+            (Self::KeySchema(_), Self::KeySchema(_)) => true,
+            (Self::Int((_, int1)), Self::Int((_, int2))) => int1 == int2,
+            (Self::Float((_, float1)), Self::Float((_, float2))) => float1 == float2,
+            (Self::MacroString((_, str1)), Self::MacroString((_, str2))) => str1 == str2,
+            (Self::ByteString((_, bytes1)), Self::ByteString((_, bytes2))) => bytes1 == bytes2,
+            (Self::String((_, str1)), Self::String((_, str2))) => str1 == str2,
+            (Self::Identifier((_, id1)), Self::Identifier((_, id2))) => id1 == id2,
+            (Self::MacroIdentifier((_, id1)), Self::MacroIdentifier((_, id2))) => id1 == id2,
+            (Self::LabelIdentifier((_, id1)), Self::LabelIdentifier((_, id2))) => id1 == id2,
+            (Self::SymbolIdentifier((_, id1)), Self::SymbolIdentifier((_, id2))) => id1 == id2,
+            (Self::ControlIdentifier((_, id1)), Self::ControlIdentifier((_, id2))) => id1 == id2,
+            (Self::Version((_, ver1)), Self::Version((_, ver2))) => ver1 == ver2,
+            (Self::Require((_, req1)), Self::Require((_, req2))) => req1 == req2,
+            (Self::LineComment((_, comment1)), Self::LineComment((_, comment2))) => {
+                comment1 == comment2
+            }
+            (Self::MultiLineComment((_, comment1)), Self::MultiLineComment((_, comment2))) => {
+                comment1 == comment2
+            }
+            _ => false,
         }
     }
 }
@@ -538,13 +610,388 @@ number!(binary: 2 [
 
 #[cfg(test)]
 mod test {
+    use super::{HashableFloat, Integer, Token};
+    use crate::ast::Location;
     use logos::Logos;
 
-    use super::Token;
+    fn assert_single_token(input: &str, expected: Token) {
+        let mut lexer = Token::lexer(input);
+        let token = lexer.next().unwrap().unwrap();
+        assert!(
+            token.eq_kind(&expected),
+            "Got a token {:?} but expected {:?}",
+            token,
+            expected
+        );
+        assert!(lexer.next().is_none(), "Expected only one token");
+    }
 
     #[test]
-    fn byte_string() {
-        let tokens = Token::lexer("b'aGVsbG8='").collect::<Vec<_>>();
-        println!("received: {:?}", tokens);
+    fn test_byte_string() {
+        let mut lexer = Token::lexer("b'aGVsbG8='");
+        if let Ok(Token::ByteString((_, bytes))) = lexer.next().unwrap() {
+            assert_eq!(bytes, b"hello");
+        } else {
+            panic!("Expected ByteString token");
+        }
+    }
+
+    #[test]
+    fn test_boolean_tokens() {
+        // Test all boolean true variants
+        assert_single_token("true", Token::True(Location::default()));
+        assert_single_token("True", Token::True(Location::default()));
+        assert_single_token("yes", Token::True(Location::default()));
+        assert_single_token("Yes", Token::True(Location::default()));
+        assert_single_token("on", Token::True(Location::default()));
+        assert_single_token("On", Token::True(Location::default()));
+
+        // Test all boolean false variants
+        assert_single_token("false", Token::False(Location::default()));
+        assert_single_token("False", Token::False(Location::default()));
+        assert_single_token("no", Token::False(Location::default()));
+        assert_single_token("No", Token::False(Location::default()));
+        assert_single_token("off", Token::False(Location::default()));
+        assert_single_token("Off", Token::False(Location::default()));
+    }
+
+    #[test]
+    fn test_punctuation_tokens() {
+        assert_single_token("!", Token::Exclaim(Location::default()));
+        assert_single_token("$", Token::Dollar(Location::default()));
+        assert_single_token("[", Token::LBracket(Location::default()));
+        assert_single_token("]", Token::RBracket(Location::default()));
+        assert_single_token("{", Token::LBrace(Location::default()));
+        assert_single_token("}", Token::RBrace(Location::default()));
+        assert_single_token("(", Token::LParen(Location::default()));
+        assert_single_token(")", Token::RParen(Location::default()));
+        assert_single_token("=", Token::Assign(Location::default()));
+        assert_single_token(":", Token::Colon(Location::default()));
+        assert_single_token("?", Token::Question(Location::default()));
+        assert_single_token(",", Token::Comma(Location::default()));
+    }
+
+    #[test]
+    fn test_keyword_tokens() {
+        assert_single_token("null", Token::KeyNull(Location::default()));
+        assert_single_token("nil", Token::KeyNull(Location::default()));
+        assert_single_token("none", Token::KeyNull(Location::default()));
+        assert_single_token("bool", Token::KeyBool(Location::default()));
+        assert_single_token("string", Token::KeyString(Location::default()));
+        assert_single_token("int", Token::KeyInt(Location::default()));
+        assert_single_token("uint", Token::KeyUInt(Location::default()));
+        assert_single_token("float", Token::KeyFloat(Location::default()));
+        assert_single_token("bytes", Token::KeyBytes(Location::default()));
+    }
+
+    #[test]
+    fn test_integer_tokens() {
+        // Test decimal integers
+        let mut lexer = Token::lexer("123");
+        if let Ok(Token::Int((_, Integer::Signed(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 123);
+        } else {
+            panic!("Expected Int token with value 123");
+        }
+
+        // Test with type suffix
+        let mut lexer = Token::lexer("42i8");
+        if let Ok(Token::Int((_, Integer::I8(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 42i8);
+        } else {
+            panic!("Expected Int token with i8 value 42");
+        }
+
+        // Test hexadecimal
+        let mut lexer = Token::lexer("0xFF");
+        if let Ok(Token::Int((_, Integer::Signed(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 255);
+        } else {
+            panic!("Expected Int token with hex value 0xFF (255)");
+        }
+
+        // Test binary
+        let mut lexer = Token::lexer("0b1010");
+        if let Ok(Token::Int((_, Integer::Signed(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 10);
+        } else {
+            panic!("Expected Int token with binary value 0b1010 (10)");
+        }
+
+        // Test octal
+        let mut lexer = Token::lexer("0o10");
+        if let Ok(Token::Int((_, Integer::Signed(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 8);
+        } else {
+            panic!("Expected Int token with octal value 0o10 (8)");
+        }
+    }
+
+    #[test]
+    fn test_float_tokens() {
+        // Test basic float
+        let mut lexer = Token::lexer("123.45");
+        if let Ok(Token::Float((_, float_val))) = lexer.next().unwrap() {
+            match float_val {
+                HashableFloat::Generic(value) => assert_eq!(value, 123.45),
+                _ => panic!("Expected generic float"),
+            }
+        } else {
+            panic!("Expected Float token");
+        }
+
+        // Test with type suffix
+        let mut lexer = Token::lexer("42.5f32");
+        if let Ok(Token::Float((_, float_val))) = lexer.next().unwrap() {
+            match float_val {
+                HashableFloat::Float32(value) => assert_eq!(value, 42.5f32),
+                _ => panic!("Expected f32 float"),
+            }
+        } else {
+            panic!("Expected Float token with f32 suffix");
+        }
+
+        // Test scientific notation
+        let mut lexer = Token::lexer("1.5e3");
+        if let Ok(Token::Float((_, float_val))) = lexer.next().unwrap() {
+            match float_val {
+                HashableFloat::Generic(value) => assert_eq!(value, 1500.0),
+                _ => panic!("Expected generic float with scientific notation"),
+            }
+        } else {
+            panic!("Expected Float token with scientific notation");
+        }
+    }
+
+    #[test]
+    fn test_string_tokens() {
+        // Test single quoted string
+        let mut lexer = Token::lexer("'hello'");
+        if let Token::String((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "hello");
+        } else {
+            panic!("Expected String token");
+        }
+
+        // Test double quoted string
+        let mut lexer = Token::lexer("\"world\"");
+        if let Token::String((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "world");
+        } else {
+            panic!("Expected String token");
+        }
+
+        // Test macro string
+        let mut lexer = Token::lexer("m'macro'");
+        if let Token::MacroString((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "macro");
+        } else {
+            panic!("Expected MacroString token");
+        }
+    }
+
+    #[test]
+    fn test_identifier_tokens() {
+        // Test regular identifier
+        let mut lexer = Token::lexer("variable");
+        if let Token::Identifier((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "variable");
+        } else {
+            panic!("Expected Identifier token");
+        }
+
+        // Test macro identifier
+        let mut lexer = Token::lexer("m!macro_name");
+        if let Token::MacroIdentifier((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "macro_name");
+        } else {
+            panic!("Expected MacroIdentifier token");
+        }
+
+        // Test label identifier
+        let mut lexer = Token::lexer("!label");
+        if let Token::LabelIdentifier((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "label");
+        } else {
+            panic!("Expected LabelIdentifier token");
+        }
+
+        // Test symbol identifier
+        let mut lexer = Token::lexer(":symbol");
+        if let Token::SymbolIdentifier((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "symbol");
+        } else {
+            panic!("Expected SymbolIdentifier token");
+        }
+
+        // Test control identifier
+        let mut lexer = Token::lexer("$control");
+        if let Token::ControlIdentifier((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "control");
+        } else {
+            panic!("Expected ControlIdentifier token");
+        }
+    }
+
+    #[test]
+    fn test_version_tokens() {
+        // Test version literal
+        let mut lexer = Token::lexer("1.2.3");
+        if let Ok(Token::Version((_, version))) = lexer.next().unwrap() {
+            assert_eq!(version.major, 1);
+            assert_eq!(version.minor, 2);
+            assert_eq!(version.patch, 3);
+        } else {
+            panic!("Expected Version token");
+        }
+
+        // Test version requirement
+        let mut lexer = Token::lexer("^1.2.3");
+        if let Ok(Token::Require((_, req))) = lexer.next().unwrap() {
+            // Just check that it parsed successfully
+            assert!(req.to_string().contains("^1.2.3"));
+        } else {
+            panic!("Expected Require token");
+        }
+    }
+
+    #[test]
+    fn test_comment_tokens() {
+        // Test line comment
+        let mut lexer = Token::lexer("# This is a comment\n");
+        if let Token::LineComment((_, comment)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(comment, "This is a comment");
+        } else {
+            panic!("Expected LineComment token");
+        }
+
+        // Test multiline comment
+        let mut lexer = Token::lexer("/* This is a\nmultiline comment */");
+        if let Token::MultiLineComment((_, comment)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(comment, "This is a\nmultiline comment");
+        } else {
+            panic!("Expected MultiLineComment token");
+        }
+    }
+
+    #[test]
+    fn test_whitespace_handling() {
+        // Test that whitespace is properly skipped
+        let mut lexer = Token::lexer("  true  false  ");
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::True(Location::default()))
+        );
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::False(Location::default()))
+        );
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_newline_handling() {
+        // Test that newlines are properly recognized
+        let mut lexer = Token::lexer("true\nfalse");
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::True(Location::default()))
+        );
+        // assert_eq!(lexer.next().unwrap().unwrap(), Token::Newline);
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::False(Location::default()))
+        );
+    }
+
+    #[test]
+    fn test_multiple_tokens() {
+        // Test a more complex example with multiple tokens
+        let input = "section {\n  name: 'test',\n  value: 42\n}";
+        let mut lexer = Token::lexer(input);
+
+        // Check each token in sequence
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::KeySection(Location::default()))
+        );
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::LBrace(Location::default()))
+        );
+
+        if let Token::Identifier((_, name)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(name, "name");
+        } else {
+            panic!("Expected Identifier token");
+        }
+
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::Colon(Location::default()))
+        );
+
+        if let Token::String((_, value)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(value, "test");
+        } else {
+            panic!("Expected String token");
+        }
+
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::Comma(Location::default()))
+        );
+
+        if let Token::Identifier((_, name)) = lexer.next().unwrap().unwrap() {
+            assert_eq!(name, "value");
+        } else {
+            panic!("Expected Identifier token");
+        }
+
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::Colon(Location::default()))
+        );
+
+        if let Ok(Token::Int((_, Integer::Signed(value)))) = lexer.next().unwrap() {
+            assert_eq!(value, 42);
+        } else {
+            panic!("Expected Int token");
+        }
+
+        assert!(
+            lexer
+                .next()
+                .unwrap()
+                .unwrap()
+                .eq_kind(&Token::RBrace(Location::default()))
+        );
     }
 }
