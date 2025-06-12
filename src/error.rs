@@ -77,6 +77,8 @@ pub enum Error {
     NotFound { path: PathBuf },
     #[snafu(display("{location} - not a scope with fields"))]
     NotScope { location: Location },
+    #[snafu(display("{location} - recursion limit exceeded: maximum depth of {limit} reached"))]
+    RecursionLimit { location: Location, limit: usize },
     #[snafu(display("{location} - invalid semantic version requirement: {reason}"))]
     Require { location: Location, reason: String },
     #[snafu(display("module not found: could not find file named {name}.bml or directory named {name}.d in any of these paths:\n{}", search_paths.iter().map(|x| x.to_string_lossy().to_string()).collect::<Vec<_>>().join("\n")))]

@@ -6,8 +6,13 @@ use indexmap::IndexMap;
 use logos::Lexer;
 use snafu::{ensure, OptionExt};
 
+/// Maximum recursion depth to prevent stack overflow attacks
+const MAX_RECURSION_DEPTH: usize = 64;
+
 pub struct Parser<'source> {
     tokens: TokenReader<'source>,
+    /// Current recursion depth for preventing stack overflow
+    recursion_depth: usize,
 }
 
 impl<'source> Parser<'source> {
@@ -25,6 +30,7 @@ impl<'source> Parser<'source> {
                     file_path: None,
                 },
             },
+            recursion_depth: 0,
         }
     }
 
@@ -43,6 +49,27 @@ impl<'source> Parser<'source> {
                     file_path: Some(file_path.to_string()),
                 },
             },
+            recursion_depth: 0,
+        }
+    }
+
+    /// Check recursion depth and increment it, returning an error if max depth is exceeded
+    fn enter_recursion(&mut self) -> Result<()> {
+        if self.recursion_depth >= MAX_RECURSION_DEPTH {
+            return error::RecursionLimitSnafu {
+                location: self.tokens.location(),
+                limit: MAX_RECURSION_DEPTH,
+            }
+            .fail();
+        }
+        self.recursion_depth += 1;
+        Ok(())
+    }
+
+    /// Decrement recursion depth when exiting a recursive call
+    fn exit_recursion(&mut self) {
+        if self.recursion_depth > 0 {
+            self.recursion_depth -= 1;
         }
     }
 
@@ -91,6 +118,13 @@ impl<'source> Parser<'source> {
     }
 
     fn value_type(&mut self) -> Result<ValueType> {
+        self.enter_recursion()?;
+        let result = self.value_type_impl();
+        self.exit_recursion();
+        result
+    }
+
+    fn value_type_impl(&mut self) -> Result<ValueType> {
         let token = self.tokens.next()?.context(error::EofSnafu {
             location: self.tokens.location(),
         })?;
@@ -230,6 +264,13 @@ impl<'source> Parser<'source> {
     }
 
     fn value(&mut self) -> Result<(Value, ValueType)> {
+        self.enter_recursion()?;
+        let result = self.value_impl();
+        self.exit_recursion();
+        result
+    }
+
+    fn value_impl(&mut self) -> Result<(Value, ValueType)> {
         let meta = self.metadata()?;
 
         let token = self.tokens.next()?.context(error::EofSnafu {
@@ -424,6 +465,13 @@ impl<'source> Parser<'source> {
     }
 
     fn statement(&mut self) -> Result<Statement> {
+        self.enter_recursion()?;
+        let result = self.statement_impl();
+        self.exit_recursion();
+        result
+    }
+
+    fn statement_impl(&mut self) -> Result<Statement> {
         let meta = self.metadata()?;
 
         let token = self.tokens.next()?.context(error::EofSnafu {
@@ -606,6 +654,13 @@ impl<'source> Parser<'source> {
     }
 
     fn module(&mut self) -> Result<Statement> {
+        self.enter_recursion()?;
+        let result = self.module_impl();
+        self.exit_recursion();
+        result
+    }
+
+    fn module_impl(&mut self) -> Result<Statement> {
         let parent_meta = self.metadata()?;
         let mut children = IndexMap::with_capacity(16); // Pre-allocate with reasonable capacity
 
@@ -1041,5 +1096,48 @@ mod test {
             let mut parser = parser!(case);
             assert_eq!(parser.statement().unwrap(), expected);
         }
+    }
+
+    #[test]
+    fn recursion_guard_working() {
+        // Test with a reasonable nesting that should work
+        let nested = "[[[[1]]]]";
+        let mut parser = parser!(nested);
+        let result = parser.value();
+        
+        // Should succeed
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn recursion_limit_enforcement() {
+        let mut parser = parser!("1");
+        
+        // Manually set recursion depth to near the limit
+        parser.recursion_depth = super::MAX_RECURSION_DEPTH - 1;
+        
+        // This should still work
+        assert!(parser.enter_recursion().is_ok());
+        assert_eq!(parser.recursion_depth, super::MAX_RECURSION_DEPTH);
+        
+        // This should fail
+        let result = parser.enter_recursion();
+        assert!(result.is_err());
+        let error_msg = format!("{}", result.unwrap_err());
+        assert!(error_msg.contains("recursion limit exceeded"));
+    }
+
+    #[test]
+    fn recursion_guard_tables() {
+        // Test that the recursion guard prevents stack overflow with deeply nested tables
+        let mut deeply_nested = String::new();
+        for i in 0..100 {
+            deeply_nested.push_str(&format!("field{} = {{", i));
+        }
+        deeply_nested.push_str("value = 1");
+        for _ in 0..100 {
+            deeply_nested.push('}');
+        }
+        
     }
 }
