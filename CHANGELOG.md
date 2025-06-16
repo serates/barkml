@@ -7,67 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.8.4 (2025-06-16)
 
+<csr-id-d2122c41e9eca80b9876edeab2ff014a4529486f/>
+
 ### New Features
+
+<csr-id-a24410701c7395b6c58b212ccb31955f477bf0f3/>
+<csr-id-ea30b3d8fbe55e99811783989f582bd6d023a2c4/>
 
  - <csr-id-8a170cecbdb5a4c5ab6ef07d246c313d2ecc3bc5/> comprehensive improvements to load module
    - Enhanced StandardLoader with builder pattern and configuration management
-   - Added LoaderConfig for centralized configuration options
-   - Implemented LoadStats for performance monitoring and statistics collection
-   - Added comprehensive utility functions for file handling and validation
-   - Enhanced Walk API with path navigation and dot notation support
-   - Improved error handling with detailed context and validation
-   - Added file caching system to avoid re-parsing identical files
-   - Enhanced merge logic with better conflict resolution
-   - Added security-focused path validation and sanitization
-   - Implemented comprehensive field inspection and navigation capabilities
-   
-   New features:
-   - Builder pattern for fluent loader configuration
-   - Statistics collection with processing time and memory usage tracking
-   - Path-based navigation (e.g., walker.get('config.database.host'))
-   - Enhanced debugging and introspection tools
-   - Validation framework with early error detection
-   - Module management with advanced manipulation capabilities
-   
-   Performance improvements:
-   - Intelligent file caching system
-   - Better memory allocation strategies
-   - Optimized data structures for common operations
-   - Lazy loading where possible
-   
-   Breaking changes:
-   - Some method signatures enhanced for better error handling
-   - Configuration now handled through LoaderConfig objects
-   - Enhanced error types with additional context
-   
-   🤖 Assisted by Amazon Q Developer
- - <csr-id-a24410701c7395b6c58b212ccb31955f477bf0f3/> comprehensive improvements to AST module
-   - Enhanced type system with TypeCategory enum and better compatibility checking
-   - Added memory tracking and performance monitoring capabilities
-   - Improved tree navigation with path-based lookup and recursive search
-   - Enhanced macro resolution with recursion protection and better error handling
-   - Added comprehensive validation methods for statement structure
-   - Improved error messages with source code context and location information
-   - Added utility functions for AST analysis, memory profiling, and pretty printing
-   - Enhanced Display formatting with proper indentation across all types
-   - Added const methods for compile-time evaluation where possible
-   - Comprehensive test coverage for all new functionality
-   
-   Breaking changes:
-   - Some method signatures changed for better type safety
-   - Enhanced error types with additional context fields
-   - Reorganized internal data structures for better performance
- - <csr-id-ea30b3d8fbe55e99811783989f582bd6d023a2c4/> add recursion guard to prevent stack overflow attacks
-   - Add MAX_RECURSION_DEPTH constant (64 levels) to limit parser nesting
-   - Add recursion_depth field to Parser struct for depth tracking
-   - Add enter_recursion() and exit_recursion() guard methods
-   - Wrap recursive methods (value, value_type, statement, module) with guards
-   - Add RecursionLimit error type with location tracking
-   - Add comprehensive tests for recursion limit enforcement
-   - Maintain backward compatibility for legitimate use cases
-   
-   This prevents malicious deeply nested input from causing stack overflow
-   while providing clear error messages when limits are exceeded.
+- Added LoaderConfig for centralized configuration options
+- Implemented LoadStats for performance monitoring and statistics collection
+- Added comprehensive utility functions for file handling and validation
+- Enhanced Walk API with path navigation and dot notation support
+- Improved error handling with detailed context and validation
+- Added file caching system to avoid re-parsing identical files
+- Enhanced merge logic with better conflict resolution
+- Added security-focused path validation and sanitization
+- Implemented comprehensive field inspection and navigation capabilities
+- Builder pattern for fluent loader configuration
+- Statistics collection with processing time and memory usage tracking
+- Path-based navigation (e.g., walker.get('config.database.host'))
+- Enhanced debugging and introspection tools
+- Validation framework with early error detection
+- Module management with advanced manipulation capabilities
+- Intelligent file caching system
+- Better memory allocation strategies
+- Optimized data structures for common operations
+- Lazy loading where possible
+- Some method signatures enhanced for better error handling
+- Configuration now handled through LoaderConfig objects
+- Enhanced error types with additional context
+- Enhanced type system with TypeCategory enum and better compatibility checking
+- Added memory tracking and performance monitoring capabilities
+- Improved tree navigation with path-based lookup and recursive search
+- Enhanced macro resolution with recursion protection and better error handling
+- Added comprehensive validation methods for statement structure
+- Improved error messages with source code context and location information
+- Added utility functions for AST analysis, memory profiling, and pretty printing
+- Enhanced Display formatting with proper indentation across all types
+- Added const methods for compile-time evaluation where possible
+- Comprehensive test coverage for all new functionality
+- Some method signatures changed for better type safety
+- Enhanced error types with additional context fields
+- Reorganized internal data structures for better performance
+- Add MAX_RECURSION_DEPTH constant (64 levels) to limit parser nesting
+- Add recursion_depth field to Parser struct for depth tracking
+- Add enter_recursion() and exit_recursion() guard methods
+- Wrap recursive methods (value, value_type, statement, module) with guards
+- Add RecursionLimit error type with location tracking
+- Add comprehensive tests for recursion limit enforcement
+- Maintain backward compatibility for legitimate use cases
 
 ### Bug Fixes
 
@@ -81,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 3 calendar days.
+ - 6 commits contributed to the release over the course of 3 calendar days.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -92,12 +82,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release barkml v0.8.4 ([`1bb7e83`](https://github.com/serates/barkml/commit/1bb7e839751b08b9d39635b922c4ac22e680f8cd))
     - Apply cargo fmt formatting ([`d2122c4`](https://github.com/serates/barkml/commit/d2122c41e9eca80b9876edeab2ff014a4529486f))
     - Comprehensive improvements to load module ([`8a170ce`](https://github.com/serates/barkml/commit/8a170cecbdb5a4c5ab6ef07d246c313d2ecc3bc5))
     - Comprehensive improvements to AST module ([`a244107`](https://github.com/serates/barkml/commit/a24410701c7395b6c58b212ccb31955f477bf0f3))
     - Add recursion guard to prevent stack overflow attacks ([`ea30b3d`](https://github.com/serates/barkml/commit/ea30b3d8fbe55e99811783989f582bd6d023a2c4))
     - Boolean values having lower priority than identifiers ([`2ae8fb8`](https://github.com/serates/barkml/commit/2ae8fb89cd70e08659a6d8dbcf3c4f874f0115ab))
 </details>
+
+<csr-unknown>
+New features:Performance improvements:Breaking changes:🤖 Assisted by Amazon Q Developer comprehensive improvements to AST moduleBreaking changes: add recursion guard to prevent stack overflow attacksThis prevents malicious deeply nested input from causing stack overflowwhile providing clear error messages when limits are exceeded.<csr-unknown/>
 
 ## 0.8.3 (2025-06-10)
 
@@ -126,25 +120,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-9f4c382e88e9909a5607b21f1ca31129336a336a/> enhance BarkML loader documentation and improve code comments
    This commit improves the documentation for the BarkML loader modules by:
    - Adding comprehensive module and struct-level documentation
-- Clarifying the purpose and behavior of loader methods
-- Improving inline comments to explain complex logic
-- Using more precise language in docstrings
-- Enhancing code readability and understanding of the loading process
-- Adding comprehensive module-level documentation
-- Introducing a new `prelude` module for easy imports
-- Expanding docstrings for key structs and enums
-- Improving code organization and readability
-- Adding a constructor method for the `Statement` struct
-- Adding source text and length tracking
-- Implementing new constructors for more flexible location creation
-- Improving display and context methods
-- Updating error handling to include source context
-- Enhancing lexer location generation with more detailed information
-- Improve comment processing to support multiple comments
-- Add support for more token types in type parsing
-- Optimize array parsing with pre-allocated vectors
-- Refactor token extraction and error handling
-- Expand supported type tokens for more flexible parsing
 
 ### Bug Fixes
 
@@ -181,7 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- enhance AST module with improved documentation and structureThis commit improves the Abstract Syntax Tree (AST) module by: enhance Location struct with more context and error reporting detailsThis commit improves the Location struct by: enhance parser comment and token handling<csr-unknown/>
+Clarifying the purpose and behavior of loader methodsImproving inline comments to explain complex logicUsing more precise language in docstringsEnhancing code readability and understanding of the loading processAdding comprehensive module-level documentationIntroducing a new prelude module for easy importsExpanding docstrings for key structs and enumsImproving code organization and readabilityAdding a constructor method for the Statement structAdding source text and length trackingImplementing new constructors for more flexible location creationImproving display and context methodsUpdating error handling to include source contextEnhancing lexer location generation with more detailed informationImprove comment processing to support multiple commentsAdd support for more token types in type parsingOptimize array parsing with pre-allocated vectorsRefactor token extraction and error handlingExpand supported type tokens for more flexible parsing<csr-unknown/>
 
 ## 0.8.2 (2025-03-07)
 
@@ -302,6 +277,8 @@ Removes:
 
 ## 0.6.8 (2024-07-22)
 
+<csr-id-61a51e14d845fcaf689e5c95acd231c89fb0cb98/>
+
 Changes:
 
 * Moves the Lexer and Parser to keep track of line and column
@@ -359,6 +336,8 @@ Fixes:
 </details>
 
 ## 0.6.6 (2024-07-19)
+
+<csr-id-be6b9fcb574d30e6f109b83cedf8e0a1d680eaa5/>
 
 Fixes:
 
