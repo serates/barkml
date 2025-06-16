@@ -14,8 +14,8 @@ use snafu::Snafu;
 
 // Local crate imports
 use crate::{
-    ast::{Location, ValueType},
     Token,
+    ast::{Location, ValueType},
 };
 
 /// Comprehensive error type for all BarkML operations.
@@ -50,6 +50,8 @@ pub enum Error {
         right_id: String,
         right_location: Location,
     },
+    #[snafu(transparent)]
+    Deserialize { source: crate::de::error::Error },
     #[snafu(display("{location} - unexpected end of file"))]
     Eof { location: Location },
     #[snafu(display("{location} - syntax error: expected {expected}, found {got}\n{context}"))]
