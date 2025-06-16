@@ -1,4 +1,4 @@
-use super::types::{StatementType, ValueType};
+use super::types::StatementType;
 use super::{Data, Statement, StatementData, Value};
 use crate::{Result, error};
 use indexmap::{IndexMap, IndexSet};

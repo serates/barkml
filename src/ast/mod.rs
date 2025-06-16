@@ -11,18 +11,6 @@
 //! - **Statements**: Structural elements with the `Statement` and `StatementData` enums
 //! - **Scope**: Macro resolution and symbol table management
 //!
-//! # Usage
-//!
-//! ```rust
-//! use barkml::*;
-//!
-//! // Create a simple value
-//! let meta = Metadata::new(Location::new(0, 0));
-//! let value = Value::new_string("hello".to_string(), meta.clone());
-//!
-//! // Create an assignment statement
-//! let stmt = Statement::new_assign("greeting", None, value, meta).unwrap();
-//! ```
 
 mod scope;
 mod statement;
@@ -35,9 +23,10 @@ pub use statement::*;
 pub use types::*;
 pub use value::*;
 
-/// Utility functions for working with AST nodes
-pub mod utils {
+#[cfg(test)]
+mod tests {
     use super::*;
+    use indexmap::IndexMap;
 
     /// Recursively counts all values in a statement tree
     pub fn count_values(stmt: &Statement) -> usize {
@@ -159,13 +148,6 @@ pub mod utils {
 
         result
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::utils::*;
-    use super::*;
-    use indexmap::IndexMap;
 
     #[test]
     fn test_ast_creation_and_traversal() {
