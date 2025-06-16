@@ -43,6 +43,9 @@ mod syn;
 // Serde deserialization support
 pub mod de;
 
+// Serde serialization support
+pub mod ser;
+
 // Re-exports
 pub use ast::*;
 pub use error::Error;

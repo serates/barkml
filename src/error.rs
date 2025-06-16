@@ -104,6 +104,8 @@ pub enum Error {
         name: String,
         search_paths: Vec<PathBuf>,
     },
+    #[snafu(transparent)]
+    Serialize { source: crate::ser::error::Error },
     #[snafu(display("unknown error occurred"))]
     #[default]
     Unknown,
