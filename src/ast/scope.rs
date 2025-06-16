@@ -220,11 +220,11 @@ impl Scope {
         }
 
         let mut result = String::new();
-        let mut chars = input.chars().peekable();
+        let chars = input.chars().peekable();
         let mut brace_depth = 0;
         let mut current_macro = String::new();
 
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             match ch {
                 '{' if brace_depth == 0 => {
                     brace_depth = 1;

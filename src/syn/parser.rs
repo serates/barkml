@@ -1,10 +1,10 @@
 use super::lexer::{HashableFloat, Integer, Token};
 use super::read::{Read, TokenReader};
 use crate::ast::{Location, Metadata, Statement, Value, ValueType};
-use crate::{error, Result};
+use crate::{Result, error};
 use indexmap::IndexMap;
 use logos::Lexer;
-use snafu::{ensure, OptionExt};
+use snafu::{OptionExt, ensure};
 
 /// Maximum recursion depth to prevent stack overflow attacks
 const MAX_RECURSION_DEPTH: usize = 64;
@@ -444,7 +444,7 @@ impl<'source> Parser<'source> {
                                 got: token.clone(),
                                 context: "while parsing table entries".to_string(),
                             }
-                            .fail()
+                            .fail();
                         }
                     }
                 }
@@ -1104,7 +1104,7 @@ mod test {
         let nested = "[[[[1]]]]";
         let mut parser = parser!(nested);
         let result = parser.value();
-        
+
         // Should succeed
         assert!(result.is_ok());
     }
@@ -1112,14 +1112,14 @@ mod test {
     #[test]
     fn recursion_limit_enforcement() {
         let mut parser = parser!("1");
-        
+
         // Manually set recursion depth to near the limit
         parser.recursion_depth = super::MAX_RECURSION_DEPTH - 1;
-        
+
         // This should still work
         assert!(parser.enter_recursion().is_ok());
         assert_eq!(parser.recursion_depth, super::MAX_RECURSION_DEPTH);
-        
+
         // This should fail
         let result = parser.enter_recursion();
         assert!(result.is_err());
@@ -1138,6 +1138,5 @@ mod test {
         for _ in 0..100 {
             deeply_nested.push('}');
         }
-        
     }
 }

@@ -34,15 +34,15 @@ impl<'source> Read<'source> for TokenReader<'source> {
     fn next(&mut self) -> Result<Option<Token>> {
         if let Some(token) = self.lexer.next() {
             let token = token?;
-            
+
             // Update location with more detailed information
             let mut loc = token.location(Some(self.module_name.clone()));
-            
+
             // Preserve file path if it exists in the current location
             if let Some(file_path) = &self.location.file_path {
                 loc.file_path = Some(file_path.clone());
             }
-            
+
             self.location = loc;
             Ok(Some(token.clone()))
         } else {

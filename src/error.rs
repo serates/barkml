@@ -1,14 +1,28 @@
-use snafu::Snafu;
+//! Error types and handling for BarkML parsing and processing.
+//!
+//! This module defines the comprehensive error types used throughout the BarkML library.
+//! All errors implement the `snafu::Snafu` trait for rich error context and formatting.
+
+// Standard library imports
 use std::{
     num::{ParseFloatError, ParseIntError},
     path::PathBuf,
 };
 
+// External crate imports
+use snafu::Snafu;
+
+// Local crate imports
 use crate::{
     ast::{Location, ValueType},
     Token,
 };
 
+/// Comprehensive error type for all BarkML operations.
+///
+/// This enum covers all possible error conditions that can occur during
+/// BarkML parsing, loading, and processing. Each variant includes contextual
+/// information to help with debugging and error reporting.
 #[derive(Debug, Snafu, Clone, Default, PartialEq)]
 #[snafu(visibility(pub))]
 pub enum Error {
@@ -67,7 +81,9 @@ pub enum Error {
     NoField { location: Location, field: String },
     #[snafu(display("{location} - field '{field}' is not a value"))]
     NoValue { location: Location, field: String },
-    #[snafu(display("{location} - macro resolution failed: could not locate value at path '{path}'"))]
+    #[snafu(display(
+        "{location} - macro resolution failed: could not locate value at path '{path}'"
+    ))]
     NoMacro { location: Location, path: String },
     #[snafu(display(
         "missing main module: the standard loader requires at least one main module to load"
