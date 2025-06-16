@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.8.5 (2025-06-16)
+
+### New Features
+
+ - <csr-id-e8dececac6d4b98f3f0983b6ef60d832d9f28bab/> Add serde serialization module
+   Add comprehensive serde serialization support for BarkML AST nodes:
+   
+   - Add ValueSerializer for serializing to BarkML Value types
+   - Add StatementSerializer for serializing to BarkML Statement types
+   - Support all Rust primitive types, collections, structs, and enums
+   - Provide to_statement() and to_value() convenience functions
+   - Include error handling with descriptive error messages
+   - Add extensive test coverage for serialization scenarios
+   
+   This enables programmatic generation of BarkML AST from Rust data structures.
+ - <csr-id-943c786a68e0f7a35e528fb04f8a12d5b9a42d1a/> add serde deserializer module for Statement and Value types
+   Implement comprehensive serde deserialization support for BarkML AST nodes:
+   
+   - Add ValueDeserializer for deserializing from BarkML Value types
+   - Add StatementDeserializer for deserializing from BarkML Statement types
+   - Support all BarkML data types including primitives, arrays, tables, and enums
+   - Provide from_statement() and from_value() convenience functions
+   - Include comprehensive error handling with descriptive error messages
+   - Add extensive test coverage for various deserialization scenarios
+   
+   This enables direct deserialization of Rust structs from parsed BarkML AST,
+   making it easier to work with BarkML configuration data in Rust applications.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Add serde serialization module ([`e8decec`](https://github.com/serates/barkml/commit/e8dececac6d4b98f3f0983b6ef60d832d9f28bab))
+    - Add serde deserializer module for Statement and Value types ([`943c786`](https://github.com/serates/barkml/commit/943c786a68e0f7a35e528fb04f8a12d5b9a42d1a))
+</details>
+
 ## 0.8.4 (2025-06-16)
 
 <csr-id-d2122c41e9eca80b9876edeab2ff014a4529486f/>
@@ -16,48 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-8a170cecbdb5a4c5ab6ef07d246c313d2ecc3bc5/> comprehensive improvements to load module
    - Enhanced StandardLoader with builder pattern and configuration management
-- Added LoaderConfig for centralized configuration options
-- Implemented LoadStats for performance monitoring and statistics collection
-- Added comprehensive utility functions for file handling and validation
-- Enhanced Walk API with path navigation and dot notation support
-- Improved error handling with detailed context and validation
-- Added file caching system to avoid re-parsing identical files
-- Enhanced merge logic with better conflict resolution
-- Added security-focused path validation and sanitization
-- Implemented comprehensive field inspection and navigation capabilities
-- Builder pattern for fluent loader configuration
-- Statistics collection with processing time and memory usage tracking
-- Path-based navigation (e.g., walker.get('config.database.host'))
-- Enhanced debugging and introspection tools
-- Validation framework with early error detection
-- Module management with advanced manipulation capabilities
-- Intelligent file caching system
-- Better memory allocation strategies
-- Optimized data structures for common operations
-- Lazy loading where possible
-- Some method signatures enhanced for better error handling
-- Configuration now handled through LoaderConfig objects
-- Enhanced error types with additional context
-- Enhanced type system with TypeCategory enum and better compatibility checking
-- Added memory tracking and performance monitoring capabilities
-- Improved tree navigation with path-based lookup and recursive search
-- Enhanced macro resolution with recursion protection and better error handling
-- Added comprehensive validation methods for statement structure
-- Improved error messages with source code context and location information
-- Added utility functions for AST analysis, memory profiling, and pretty printing
-- Enhanced Display formatting with proper indentation across all types
-- Added const methods for compile-time evaluation where possible
-- Comprehensive test coverage for all new functionality
-- Some method signatures changed for better type safety
-- Enhanced error types with additional context fields
-- Reorganized internal data structures for better performance
-- Add MAX_RECURSION_DEPTH constant (64 levels) to limit parser nesting
-- Add recursion_depth field to Parser struct for depth tracking
-- Add enter_recursion() and exit_recursion() guard methods
-- Wrap recursive methods (value, value_type, statement, module) with guards
-- Add RecursionLimit error type with location tracking
-- Add comprehensive tests for recursion limit enforcement
-- Maintain backward compatibility for legitimate use cases
 
 ### Bug Fixes
 
@@ -71,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 3 calendar days.
+ - 7 commits contributed to the release over the course of 3 calendar days.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -82,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release barkml v0.8.4 ([`fd4eebf`](https://github.com/serates/barkml/commit/fd4eebf7ef2924f31d904ac36876ecf2f6da1200))
     - Release barkml v0.8.4 ([`1bb7e83`](https://github.com/serates/barkml/commit/1bb7e839751b08b9d39635b922c4ac22e680f8cd))
     - Apply cargo fmt formatting ([`d2122c4`](https://github.com/serates/barkml/commit/d2122c41e9eca80b9876edeab2ff014a4529486f))
     - Comprehensive improvements to load module ([`8a170ce`](https://github.com/serates/barkml/commit/8a170cecbdb5a4c5ab6ef07d246c313d2ecc3bc5))
@@ -91,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
-New features:Performance improvements:Breaking changes:🤖 Assisted by Amazon Q Developer comprehensive improvements to AST moduleBreaking changes: add recursion guard to prevent stack overflow attacksThis prevents malicious deeply nested input from causing stack overflowwhile providing clear error messages when limits are exceeded.<csr-unknown/>
+Added LoaderConfig for centralized configuration optionsImplemented LoadStats for performance monitoring and statistics collectionAdded comprehensive utility functions for file handling and validationEnhanced Walk API with path navigation and dot notation supportImproved error handling with detailed context and validationAdded file caching system to avoid re-parsing identical filesEnhanced merge logic with better conflict resolutionAdded security-focused path validation and sanitizationImplemented comprehensive field inspection and navigation capabilitiesBuilder pattern for fluent loader configurationStatistics collection with processing time and memory usage trackingPath-based navigation (e.g., walker.get(‘config.database.host’))Enhanced debugging and introspection toolsValidation framework with early error detectionModule management with advanced manipulation capabilitiesIntelligent file caching systemBetter memory allocation strategiesOptimized data structures for common operationsLazy loading where possibleSome method signatures enhanced for better error handlingConfiguration now handled through LoaderConfig objectsEnhanced error types with additional contextEnhanced type system with TypeCategory enum and better compatibility checkingAdded memory tracking and performance monitoring capabilitiesImproved tree navigation with path-based lookup and recursive searchEnhanced macro resolution with recursion protection and better error handlingAdded comprehensive validation methods for statement structureImproved error messages with source code context and location informationAdded utility functions for AST analysis, memory profiling, and pretty printingEnhanced Display formatting with proper indentation across all typesAdded const methods for compile-time evaluation where possibleComprehensive test coverage for all new functionalitySome method signatures changed for better type safetyEnhanced error types with additional context fieldsReorganized internal data structures for better performanceAdd MAX_RECURSION_DEPTH constant (64 levels) to limit parser nestingAdd recursion_depth field to Parser struct for depth trackingAdd enter_recursion() and exit_recursion() guard methodsWrap recursive methods (value, value_type, statement, module) with guardsAdd RecursionLimit error type with location trackingAdd comprehensive tests for recursion limit enforcementMaintain backward compatibility for legitimate use cases<csr-unknown/>
 
 ## 0.8.3 (2025-06-10)
 
@@ -154,9 +160,6 @@ New features:Performance improvements:Breaking changes:🤖 Assisted by Amazon Q
     - Enhance parser comment and token handling ([`e8a24d6`](https://github.com/serates/barkml/commit/e8a24d6ec53150e9c7be5a7cccabc83b6e85d2b6))
     - Simple update of dependencies to keep up to date ([`a4b59e7`](https://github.com/serates/barkml/commit/a4b59e73f60efb0a29733fbea1f30e0d6f8460f4))
 </details>
-
-<csr-unknown>
-Clarifying the purpose and behavior of loader methodsImproving inline comments to explain complex logicUsing more precise language in docstringsEnhancing code readability and understanding of the loading processAdding comprehensive module-level documentationIntroducing a new prelude module for easy importsExpanding docstrings for key structs and enumsImproving code organization and readabilityAdding a constructor method for the Statement structAdding source text and length trackingImplementing new constructors for more flexible location creationImproving display and context methodsUpdating error handling to include source contextEnhancing lexer location generation with more detailed informationImprove comment processing to support multiple commentsAdd support for more token types in type parsingOptimize array parsing with pre-allocated vectorsRefactor token extraction and error handlingExpand supported type tokens for more flexible parsing<csr-unknown/>
 
 ## 0.8.2 (2025-03-07)
 
